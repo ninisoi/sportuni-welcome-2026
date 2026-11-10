@@ -1,0 +1,1 @@
+(()=>{const qr=document.getElementById('qr');let qid=null;async function tick(){try{const r=await fetch('/api/public',{cache:'no-store'}),d=await r.json();if(qid!==d.question.id){qid=d.question.id;qr.src='/api/qr.svg?q='+qid}}catch{}}tick();setInterval(tick,3500)})();
