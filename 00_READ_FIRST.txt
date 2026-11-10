@@ -1,0 +1,7 @@
+SPORTUNI WELCOME 2026
+1) ჯერ Supabase SQL Editor-ში გაუშვით 02_ADD_SECURE_OPERATIONS.sql.
+2) შემდეგ შექმენით Supabase Auth Admin User და მიეცით როლი.
+3) მხოლოდ ამის მერე ატვირთეთ პროექტის ყველა ფაილი GitHub-ზე.
+4) ბოლოს Vercel-ში მიუთითეთ Environment Variables და Deploy.
+სრული ინსტრუქცია: README_GE.md
+არ ატვირთოთ ნამდვილი პაროლები/API secret-ები GitHub-ზე.
