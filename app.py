@@ -945,5 +945,151 @@ def student_poll_vote():
 # END STUDENT POLL API
 # ============================================================
 
+# ============================================================
+# SPORTUNI WELCOME 2026
+# STEP 15 — LIVE POLL PROJECTOR RESULTS
+#
+# Read-only endpoint:
+# GET /api/screen/poll
+#
+# Does not publish questions or change screen modes.
+# Does not expose voters or real vote counts.
+# ============================================================
+
+@app.route('/api/screen/poll', methods=['GET'])
+def screen_poll_results():
+
+    settings, active_question = current()
+
+    if not settings:
+        raise ApiError(
+            'ღონისძიების პარამეტრები ვერ მოიძებნა',
+            503
+        )
+
+    if (
+        not active_question
+        or active_question.get('question_type') != 'poll'
+    ):
+        return jsonify(
+            ok=True,
+            active=False,
+            screen=settings.get('screen_mode', 'qr'),
+            question=None,
+            options=[],
+            has_votes=False
+        )
+
+    question_id = active_question['id']
+
+    # Read poll options in their saved order.
+    options = db(
+        'poll_options',
+        params={
+            'question_id': 'eq.' + question_id,
+            'select': (
+                'id,option_text,color_key,sort_order'
+            ),
+            'order': 'sort_order.asc',
+            'limit': '12'
+        }
+    ) or []
+
+    palette_rows = db(
+        'poll_palette',
+        params={
+            'select': 'color_key,hex_color,heart',
+            'limit': '12'
+        }
+    ) or []
+
+    palette = {
+        item['color_key']: item
+        for item in palette_rows
+    }
+
+    # Read vote option IDs only.
+    # Individual device identifiers are never returned.
+    votes = db(
+        'poll_votes',
+        params={
+            'question_id': 'eq.' + question_id,
+            'select': 'option_id',
+            'limit': '10000'
+        }
+    ) or []
+
+    counts = {
+        option['id']: 0
+        for option in options
+    }
+
+    for vote in votes:
+        option_id = vote.get('option_id')
+
+        if option_id in counts:
+            counts[option_id] += 1
+
+    total = sum(counts.values())
+    has_votes = total > 0
+
+    # Percentages must add up to exactly 100.
+    # Largest-remainder rounding prevents 99/101 totals.
+    percentages = [0] * len(options)
+
+    if has_votes:
+        raw = [
+            counts[option['id']] * 100 / total
+            for option in options
+        ]
+
+        percentages = [int(value) for value in raw]
+
+        remaining = 100 - sum(percentages)
+
+        order = sorted(
+            range(len(options)),
+            key=lambda index: (
+                -(raw[index] - percentages[index]),
+                index
+            )
+        )
+
+        for index in order[:remaining]:
+            percentages[index] += 1
+
+    result_options = []
+
+    for index, option in enumerate(options):
+        color = palette.get(option['color_key'], {})
+
+        result_options.append({
+            'id': option['id'],
+            'text': option['option_text'],
+            'color_key': option['color_key'],
+            'color': color.get(
+                'hex_color',
+                '#FDCB4E'
+            ),
+            'heart': color.get('heart', '💛'),
+            'percentage': percentages[index]
+        })
+
+    return jsonify(
+        ok=True,
+        active=True,
+        screen=settings.get('screen_mode', 'qr'),
+        question={
+            'id': question_id,
+            'text': active_question['text']
+        },
+        has_votes=has_votes,
+        options=result_options
+    )
+
+# ============================================================
+# END STEP 15 — LIVE POLL PROJECTOR RESULTS
+# ============================================================
+
 if __name__=="__main__":
     app.run(debug=False, port=8000)
