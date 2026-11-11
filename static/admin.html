@@ -2189,5 +2189,115 @@ textarea{resize:vertical}
 </script>
 <!-- END POLL TEST STUDIO -->
 
+<!-- ==========================================
+     SPORTUNI — POLL SELECT DESIGN
+     Visual styling only
+========================================== -->
+
+<style>
+
+/* ორივე ჩამოსაშლელის საერთო დიზაინი */
+
+#suPollTestSelect,
+.poll-option-color {
+
+  appearance: none;
+  -webkit-appearance: none;
+
+  background-color: #ffffff;
+
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%23093759' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+
+  background-repeat: no-repeat;
+  background-position: right 15px center;
+  background-size: 17px;
+
+  border: 1px solid #d9e5ed;
+  border-radius: 12px;
+
+  color: #093759;
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 13px;
+
+  padding: 13px 44px 13px 16px;
+
+  min-height: 48px;
+  max-width: 100%;
+
+  cursor: pointer;
+
+  outline: none;
+
+  box-shadow: 0 2px 6px rgba(9, 55, 89, 0.025);
+
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    background-color 0.2s ease;
+}
+
+/* მაუსის მიტანისას */
+
+#suPollTestSelect:hover,
+.poll-option-color:hover {
+
+  border-color: #87a9bd;
+  background-color: #fafdff;
+
+}
+
+/* არჩევისას */
+
+#suPollTestSelect:focus,
+.poll-option-color:focus {
+
+  border-color: #093759;
+
+  box-shadow:
+    0 0 0 3px rgba(9, 55, 89, 0.09);
+
+}
+
+/* სატესტო რეჟიმის Poll არჩევა */
+
+#suPollTestSelect {
+
+  width: 100%;
+  margin: 10px 0 16px;
+
+}
+
+/* გულის ფერების არჩევა */
+
+.poll-option-color {
+
+  width: 155px;
+  min-width: 155px;
+
+  font-size: 12px;
+  border-radius: 11px;
+
+}
+
+/* მობილურ ეკრანზე */
+
+@media (max-width: 640px) {
+
+  #suPollTestSelect {
+    font-size: 12px;
+  }
+
+  .poll-option-color {
+    width: 100%;
+    min-width: 125px;
+  }
+
+}
+
+</style>
+
+<!-- END POLL SELECT DESIGN -->
+
 </body>
 </html>
