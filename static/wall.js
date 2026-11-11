@@ -3,6 +3,7 @@
   'use strict';
 
   const $ = id => document.getElementById(id);
+
   const stage = $('stage');
   const slots = [...document.querySelectorAll('.answer')];
   const count = $('counter');
@@ -10,17 +11,56 @@
 
   let qid = null;
   let answers = [];
-  let answerIndex = 0;
+
+  // Each answer ID is displayed only once per question.
+  let shown = new Set();
+
+  let active = [];
   let paused = false;
   let durationMs = 8000;
-  let active = [];
+
   let clock = 0;
   let previousFrame = null;
   let nextAt = 0;
   let previousSlot = -1;
 
-  function reset() {
-    answerIndex = 0;
+  function storageKey(id) {
+    return 'sportuni_wall_shown_' + id;
+  }
+
+  function saveShown() {
+    if (!qid) return;
+
+    try {
+      sessionStorage.setItem(
+        storageKey(qid),
+        JSON.stringify([...shown])
+      );
+    } catch (error) {
+      console.warn('Could not save wall history', error);
+    }
+  }
+
+  function restoreShown(id) {
+    try {
+      const saved = JSON.parse(
+        sessionStorage.getItem(storageKey(id)) || '[]'
+      );
+
+      return new Set(
+        Array.isArray(saved) ? saved.map(String) : []
+      );
+    } catch (error) {
+      return new Set();
+    }
+  }
+
+  function reset(newQuestionId) {
+    qid = newQuestionId;
+
+    // Restore answers already displayed in this tab.
+    shown = qid ? restoreShown(qid) : new Set();
+
     active = [];
     nextAt = clock;
     previousSlot = -1;
@@ -29,18 +69,29 @@
 
     slots.forEach(slot => {
       slot.classList.remove(
-        'visible', 'long', 'very-long'
+        'visible',
+        'long',
+        'very-long'
       );
+
       slot.querySelector('p').textContent = '';
     });
+
+    if (progress) {
+      progress.style.width = '0%';
+    }
   }
 
   function randomItem(items) {
-    return items[Math.floor(Math.random() * items.length)];
+    return items[
+      Math.floor(Math.random() * items.length)
+    ];
   }
 
   function chooseRandomSlot() {
-    const busy = new Set(active.map(x => x.slot));
+    const busy = new Set(
+      active.map(entry => entry.slot)
+    );
 
     const free = slots
       .map((slot, index) => ({ slot, index }))
@@ -48,47 +99,70 @@
 
     if (!free.length) return null;
 
-    // Prefer positions away from the previous slot.
-    let candidates = free.filter(item =>
+    // Avoid the last position and neighboring slots
+    // whenever other free positions are available.
+    let choices = free.filter(item =>
       Math.abs(item.index - previousSlot) > 1
     );
 
-    if (!candidates.length) {
-      candidates = free.filter(item =>
+    if (!choices.length) {
+      choices = free.filter(item =>
         item.index !== previousSlot
       );
     }
 
-    if (!candidates.length) candidates = free;
+    if (!choices.length) choices = free;
 
-    const chosen = randomItem(candidates);
+    const chosen = randomItem(choices);
     previousSlot = chosen.index;
 
     return chosen.slot;
   }
 
-  function showAnswer() {
-    if (!answers.length) return false;
+  function nextUnshownAnswer() {
+    return answers.find(answer =>
+      answer.id != null &&
+      !shown.has(String(answer.id))
+    );
+  }
+
+  function showNextAnswer() {
+    const item = nextUnshownAnswer();
+
+    if (!item) return false;
 
     const slot = chooseRandomSlot();
-    if (!slot) return false;
 
-    const item = answers[answerIndex % answers.length];
-    answerIndex++;
+    if (!slot) return false;
 
     const text = String(item.text ?? '');
 
+    // Mark the answer as shown BEFORE animating.
+    // It must never enter the display queue again.
+    shown.add(String(item.id));
+    saveShown();
+
     slot.classList.remove(
-      'visible', 'long', 'very-long'
+      'visible',
+      'long',
+      'very-long'
     );
 
     slot.querySelector('p').textContent = text;
 
-    slot.classList.toggle('long', text.length > 28);
-    slot.classList.toggle('very-long', text.length > 44);
+    slot.classList.toggle(
+      'long',
+      text.length > 28
+    );
 
-    // Restart the existing fade-in animation.
+    slot.classList.toggle(
+      'very-long',
+      text.length > 44
+    );
+
+    // Restart the fade-in transition.
     void slot.offsetWidth;
+
     slot.classList.add('visible');
 
     stage.classList.remove('initial');
@@ -103,15 +177,16 @@
 
   async function poll() {
     try {
-      const [r, a] = await Promise.all([
-        fetch('/api/public', { cache: 'no-store' }),
-        fetch('/api/screen/answers', { cache: 'no-store' })
-      ]);
+      const statusResponse = await fetch(
+        '/api/public',
+        { cache: 'no-store' }
+      );
 
-      if (!r.ok || !a.ok) return;
+      if (!statusResponse.ok) {
+        throw new Error('Status unavailable');
+      }
 
-      const status = await r.json();
-      const data = await a.json();
+      const status = await statusResponse.json();
 
       const seconds = Number(
         status.answer_duration_seconds
@@ -123,14 +198,29 @@
       }
 
       if (qid !== status.question.id) {
-        qid = status.question.id;
-        reset();
+        reset(status.question.id);
 
         $('questionText').textContent =
           status.question.text;
       }
 
       paused = !status.animation;
+
+      // Fetch answers for the current question.
+      const answersResponse = await fetch(
+        '/api/screen/answers',
+        { cache: 'no-store' }
+      );
+
+      if (!answersResponse.ok) {
+        throw new Error('Answers unavailable');
+      }
+
+      const data = await answersResponse.json();
+
+      // If the question changed during the request,
+      // discard this outdated response.
+      if (qid !== status.question.id) return;
 
       answers = Array.isArray(data.answers)
         ? data.answers
@@ -145,7 +235,9 @@
   }
 
   function frame(now) {
-    if (previousFrame === null) previousFrame = now;
+    if (previousFrame === null) {
+      previousFrame = now;
+    }
 
     const delta = Math.max(
       0,
@@ -155,46 +247,54 @@
     previousFrame = now;
 
     if (!paused) {
-      // Logical time stops while animation is paused.
       clock += delta;
 
-      // Hide answers after their saved duration.
+      // Fade out answers after their saved duration.
       active = active.filter(entry => {
-        if (clock - entry.startedAt >= durationMs) {
+        if (
+          clock - entry.startedAt >= durationMs
+        ) {
           entry.slot.classList.remove('visible');
           return false;
         }
+
         return true;
       });
 
-      if (answers.length && clock >= nextAt) {
-        const shown = showAnswer();
+      const hasNewAnswers = Boolean(
+        nextUnshownAnswer()
+      );
 
-        const averageGap =
-          durationMs / Math.max(2, slots.length);
+      if (hasNewAnswers && clock >= nextAt) {
+        const didShow = showNextAnswer();
 
-        // A slightly different gap each time
-        // creates a more natural appearance rhythm.
-        const randomFactor = 0.75 + Math.random() * 0.5;
+        if (didShow) {
+          const gap =
+            durationMs / Math.max(2, slots.length);
 
-        nextAt = clock + (
-          shown
-            ? averageGap * randomFactor
-            : 200
-        );
+          // Randomize the timing slightly.
+          const randomFactor =
+            0.8 + Math.random() * 0.4;
+
+          nextAt =
+            clock + Math.max(250, gap * randomFactor);
+        } else {
+          // Wait for a free position.
+          nextAt = clock + 200;
+        }
       }
     }
 
     if (progress) {
-      const oldest = active[0];
+      const first = active[0];
 
-      progress.style.width = oldest
+      progress.style.width = first
         ? Math.min(
             100,
             Math.max(
               0,
-              (clock - oldest.startedAt) /
-              durationMs * 100
+              (clock - first.startedAt)
+                / durationMs * 100
             )
           ) + '%'
         : '0%';
@@ -203,9 +303,11 @@
     requestAnimationFrame(frame);
   }
 
-  reset();
+  reset(null);
   poll();
 
+  // Check for newly approved answers.
   setInterval(poll, 1800);
+
   requestAnimationFrame(frame);
 })();
