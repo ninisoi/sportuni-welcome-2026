@@ -1,3 +1,4 @@
+
 """SPORTUNI WELCOME 2026 · Vercel Flask + Supabase PostgREST.
 Only this server sees service-role credentials. Never send them to a browser.
 """
@@ -143,7 +144,7 @@ def logout():
 
 @app.route('/api/public')
 def public():
-    s,q=current(); return jsonify(question={'id':q['id'],'text':q['text']} if q else {'id':None,'text':'კითხვა ჯერ არ გამოქვეყნებულა'},screen=s['screen_mode'],intake=s['intake_enabled'] and bool(q),animation=s['animation_enabled'],speed=float(s['animation_speed']))
+    s,q=current(); return jsonify(question={'id':q['id'],'text':q['text']} if q else {'id':None,'text':'კითხვა ჯერ არ გამოქვეყნებულა'},screen=s['screen_mode'],intake=s['intake_enabled'] and bool(q),animation=s['animation_enabled'],speed=float(s['animation_speed']),answer_duration_seconds=int(s.get('answer_duration_seconds') or 8))
 
 @app.route('/api/student/status')
 def student_status():
@@ -206,17 +207,18 @@ def dashboard():
     nums={p['id']:p['question_number'] for p in questions}
     if role=='admin': answers=db('answers',params={'select':'id,question_id,answer_text,status,created_at','order':'created_at.desc','limit':'1500'}) or []
     else: answers=db('answers',params={'select':'id,question_id,answer_text,status,created_at','status':'eq.pending','order':'created_at.desc','limit':'400'}) or []
-    return jsonify(role=role,qid=q['question_number'] if q else 0,screen=s['screen_mode'],intake=s['intake_enabled'],animation=s['animation_enabled'],speed=float(s['animation_speed']),moderation_mode=s['moderation_mode'],questions=[shape_question(x) for x in questions],answers=[shape_answer(x,nums) for x in answers])
+    return jsonify(role=role,qid=q['question_number'] if q else 0,screen=s['screen_mode'],intake=s['intake_enabled'],animation=s['animation_enabled'],speed=float(s['animation_speed']),answer_duration_seconds=int(s.get('answer_duration_seconds') or 8),moderation_mode=s['moderation_mode'],questions=[shape_question(x) for x in questions],answers=[shape_answer(x,nums) for x in answers])
 
 @app.route('/api/admin/change',methods=['POST'])
 def admin_change():
     staff('admin');j=json_input(); k=j.get('key');v=j.get('value')
-    cols={'screen':'screen_mode','intake':'intake_enabled','animation':'animation_enabled','speed':'animation_speed','moderation_mode':'moderation_mode'}
+    cols={'screen':'screen_mode','intake':'intake_enabled','animation':'animation_enabled','speed':'animation_speed','answer_duration_seconds':'answer_duration_seconds','moderation_mode':'moderation_mode'}
     if k not in cols: raise ApiError('პარამეტრი არ არსებობს')
     if k=='screen' and v not in ('qr','wall'): raise ApiError('რეჟიმი არასწორია')
     if k=='moderation_mode' and v not in ('ai','manual','direct'): raise ApiError('მოდერაციის რეჟიმი არასწორია')
     if k in ('intake','animation') and not isinstance(v,bool): raise ApiError('მნიშვნელობა არასწორია')
     if k=='speed' and (not isinstance(v,(float,int)) or isinstance(v,bool) or not .5<=v<=2):raise ApiError('სიჩქარე არასწორია')
+    if k=='answer_duration_seconds' and (type(v) is not int or not 3<=v<=60):raise ApiError('აირჩიე 3-დან 60 წამამდე')
     db('event_settings',method='PATCH',params={'id':'eq.1'},body={cols[k]:v})
     return jsonify(ok=True)
 
