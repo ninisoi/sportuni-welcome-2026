@@ -3,7 +3,6 @@
   'use strict';
 
   const $ = id => document.getElementById(id);
-
   const stage = $('stage');
   const slots = [...document.querySelectorAll('.answer')];
   const count = $('counter');
@@ -11,21 +10,37 @@
 
   let qid = null;
   let answers = [];
-
-  // Each answer ID is displayed only once per question.
   let shown = new Set();
-
   let active = [];
-  let paused = false;
+
+  let screenMode = 'qr';
+  let animationEnabled = true;
   let durationMs = 8000;
 
   let clock = 0;
   let previousFrame = null;
   let nextAt = 0;
   let previousSlot = -1;
+  let polling = false;
 
   function storageKey(id) {
     return 'sportuni_wall_shown_' + id;
+  }
+
+  function restoreShown(id) {
+    if (!id) return new Set();
+
+    try {
+      const saved = JSON.parse(
+        sessionStorage.getItem(storageKey(id)) || '[]'
+      );
+
+      return new Set(
+        Array.isArray(saved) ? saved.map(String) : []
+      );
+    } catch {
+      return new Set();
+    }
   }
 
   function saveShown() {
@@ -37,35 +52,12 @@
         JSON.stringify([...shown])
       );
     } catch (error) {
-      console.warn('Could not save wall history', error);
+      console.warn('Saving display history failed', error);
     }
   }
 
-  function restoreShown(id) {
-    try {
-      const saved = JSON.parse(
-        sessionStorage.getItem(storageKey(id)) || '[]'
-      );
-
-      return new Set(
-        Array.isArray(saved) ? saved.map(String) : []
-      );
-    } catch (error) {
-      return new Set();
-    }
-  }
-
-  function reset(newQuestionId) {
-    qid = newQuestionId;
-
-    // Restore answers already displayed in this tab.
-    shown = qid ? restoreShown(qid) : new Set();
-
+  function clearBubbles() {
     active = [];
-    nextAt = clock;
-    previousSlot = -1;
-
-    stage.classList.add('initial');
 
     slots.forEach(slot => {
       slot.classList.remove(
@@ -73,13 +65,23 @@
         'long',
         'very-long'
       );
-
       slot.querySelector('p').textContent = '';
     });
+
+    stage.classList.add('initial');
 
     if (progress) {
       progress.style.width = '0%';
     }
+  }
+
+  function resetQuestion(id) {
+    qid = id;
+    shown = restoreShown(id);
+    answers = [];
+    nextAt = clock;
+    previousSlot = -1;
+    clearBubbles();
   }
 
   function randomItem(items) {
@@ -94,13 +96,11 @@
     );
 
     const free = slots
-      .map((slot, index) => ({ slot, index }))
+      .map((slot, index) => ({slot, index}))
       .filter(item => !busy.has(item.slot));
 
     if (!free.length) return null;
 
-    // Avoid the last position and neighboring slots
-    // whenever other free positions are available.
     let choices = free.filter(item =>
       Math.abs(item.index - previousSlot) > 1
     );
@@ -113,10 +113,10 @@
 
     if (!choices.length) choices = free;
 
-    const chosen = randomItem(choices);
-    previousSlot = chosen.index;
+    const selected = randomItem(choices);
+    previousSlot = selected.index;
 
-    return chosen.slot;
+    return selected.slot;
   }
 
   function nextUnshownAnswer() {
@@ -127,20 +127,18 @@
   }
 
   function showNextAnswer() {
-    const item = nextUnshownAnswer();
+    // NEVER show answers while QR mode is active.
+    if (screenMode !== 'wall') return false;
 
-    if (!item) return false;
+    if (!animationEnabled) return false;
+
+    const answer = nextUnshownAnswer();
+    if (!answer) return false;
 
     const slot = chooseRandomSlot();
-
     if (!slot) return false;
 
-    const text = String(item.text ?? '');
-
-    // Mark the answer as shown BEFORE animating.
-    // It must never enter the display queue again.
-    shown.add(String(item.id));
-    saveShown();
+    const text = String(answer.text ?? '');
 
     slot.classList.remove(
       'visible',
@@ -160,12 +158,14 @@
       text.length > 44
     );
 
-    // Restart the fade-in transition.
     void slot.offsetWidth;
 
     slot.classList.add('visible');
-
     stage.classList.remove('initial');
+
+    // Mark as shown ONLY after Live Wall displays it.
+    shown.add(String(answer.id));
+    saveShown();
 
     active.push({
       slot,
@@ -176,10 +176,13 @@
   }
 
   async function poll() {
+    if (polling) return;
+    polling = true;
+
     try {
       const statusResponse = await fetch(
         '/api/public',
-        { cache: 'no-store' }
+        {cache: 'no-store'}
       );
 
       if (!statusResponse.ok) {
@@ -197,19 +200,44 @@
           Math.max(3, Math.min(60, seconds)) * 1000;
       }
 
-      if (qid !== status.question.id) {
-        reset(status.question.id);
+      const newQuestionId = status.question?.id ?? null;
+
+      if (qid !== newQuestionId) {
+        resetQuestion(newQuestionId);
 
         $('questionText').textContent =
-          status.question.text;
+          status.question?.text || '';
       }
 
-      paused = !status.animation;
+      const previousMode = screenMode;
 
-      // Fetch answers for the current question.
+      // This value comes from the main admin's
+      // QR / Live Wall setting in Supabase.
+      screenMode = status.screen === 'wall'
+        ? 'wall'
+        : 'qr';
+
+      animationEnabled = status.animation === true;
+
+      if (screenMode !== 'wall') {
+        // QR mode: do not consume waiting answers.
+        // Answers already shown remain in history.
+        if (previousMode === 'wall') {
+          clearBubbles();
+        }
+      }
+
+      if (
+        previousMode !== 'wall' &&
+        screenMode === 'wall'
+      ) {
+        // Begin displaying queued answers only now.
+        nextAt = clock;
+      }
+
       const answersResponse = await fetch(
         '/api/screen/answers',
-        { cache: 'no-store' }
+        {cache: 'no-store'}
       );
 
       if (!answersResponse.ok) {
@@ -218,9 +246,9 @@
 
       const data = await answersResponse.json();
 
-      // If the question changed during the request,
-      // discard this outdated response.
-      if (qid !== status.question.id) return;
+      // Discard results if the question changed
+      // while this request was running.
+      if (qid !== newQuestionId) return;
 
       answers = Array.isArray(data.answers)
         ? data.answers
@@ -231,6 +259,8 @@
 
     } catch (error) {
       console.warn('Live Wall update failed', error);
+    } finally {
+      polling = false;
     }
   }
 
@@ -246,14 +276,17 @@
 
     previousFrame = now;
 
-    if (!paused) {
+    // Time moves ONLY during active Live Wall.
+    const canPlay =
+      screenMode === 'wall' &&
+      animationEnabled;
+
+    if (canPlay) {
       clock += delta;
 
-      // Fade out answers after their saved duration.
+      // Fade out after the configured duration.
       active = active.filter(entry => {
-        if (
-          clock - entry.startedAt >= durationMs
-        ) {
+        if (clock - entry.startedAt >= durationMs) {
           entry.slot.classList.remove('visible');
           return false;
         }
@@ -261,25 +294,23 @@
         return true;
       });
 
-      const hasNewAnswers = Boolean(
-        nextUnshownAnswer()
-      );
+      if (
+        nextUnshownAnswer() &&
+        clock >= nextAt
+      ) {
+        const displayed = showNextAnswer();
 
-      if (hasNewAnswers && clock >= nextAt) {
-        const didShow = showNextAnswer();
-
-        if (didShow) {
-          const gap =
+        if (displayed) {
+          // Stagger answers naturally.
+          const averageGap =
             durationMs / Math.max(2, slots.length);
 
-          // Randomize the timing slightly.
           const randomFactor =
             0.8 + Math.random() * 0.4;
 
-          nextAt =
-            clock + Math.max(250, gap * randomFactor);
+          nextAt = clock +
+            Math.max(250, averageGap * randomFactor);
         } else {
-          // Wait for a free position.
           nextAt = clock + 200;
         }
       }
@@ -293,8 +324,8 @@
             100,
             Math.max(
               0,
-              (clock - first.startedAt)
-                / durationMs * 100
+              (clock - first.startedAt) /
+              durationMs * 100
             )
           ) + '%'
         : '0%';
@@ -303,10 +334,11 @@
     requestAnimationFrame(frame);
   }
 
-  reset(null);
-  poll();
+  resetQuestion(null);
 
-  // Check for newly approved answers.
+  // Before the first status response, QR mode
+  // is assumed, so no answer can be consumed.
+  poll();
   setInterval(poll, 1800);
 
   requestAnimationFrame(frame);
