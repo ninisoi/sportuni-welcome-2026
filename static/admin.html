@@ -946,7 +946,232 @@ textarea{resize:vertical}
         </div>
 
         <div class="divider"></div>
+        
+<!-- =========================================
+     SPORTUNI WELCOME 2026
+     LIVE POLL CREATOR
+     New UI — existing questions remain intact
+========================================= -->
 
+<div class="box" id="pollCreatorPanel"
+     style="box-shadow:none;margin:20px 0;
+            border:1px solid #dce7ef">
+
+  <div class="sectiontitle">
+    <div>
+      <div class="eyebrow">ახალი ტიპის კითხვა</div>
+      <h2>💛 Live Poll — გამოკითხვის შექმნა</h2>
+    </div>
+    <span class="badge green">ასარჩევი პასუხები</span>
+  </div>
+
+  <p class="notice" style="margin-bottom:18px">
+    შექმენი გამოკითხვა და შეინახე წინასწარ.
+    შეგიძლია დაამატო 2-დან 12-მდე პასუხი.
+    თითოეულ პასუხს მიენიჭება ფერი და
+    შესაბამისი გულის ემოჯი.
+  </p>
+
+  <!-- QUESTION -->
+
+  <label class="field" for="pollQuestionInput">
+    Poll-ის შეკითხვა
+  </label>
+
+  <textarea
+    id="pollQuestionInput"
+    maxlength="200"
+    rows="3"
+    placeholder="მაგალითად: რომელი ფაკულტეტიდან ხარ?"
+    style="width:100%"
+  ></textarea>
+
+  <div class="smallprint"
+       id="pollQuestionCount"
+       style="margin:7px 0 20px">
+    0 / 200
+  </div>
+
+  <!-- OPTIONS -->
+
+  <div class="sectiontitle">
+    <h2 style="font-size:15px">
+      პასუხების ვარიანტები
+    </h2>
+
+    <span class="badge" id="pollOptionCount">
+      3 / 12
+    </span>
+  </div>
+
+  <p class="smallprint" style="margin-bottom:13px">
+    აირჩიე პასუხის ფერი.
+    გულის ემოჯი და პროექტორის ბაბლების
+    ფერი ავტომატურად დაემთხვევა ერთმანეთს.
+  </p>
+
+  <div id="pollOptionsEditor"
+       style="display:grid;gap:12px">
+
+    <!-- Option 1 -->
+    <div class="poll-option-row"
+         style="display:flex;gap:10px;
+                align-items:center;flex-wrap:wrap">
+
+      <span class="poll-heart-preview"
+            style="font-size:26px">💛</span>
+
+      <input
+        class="poll-option-text"
+        type="text"
+        maxlength="200"
+        value="მწვრთნელთა ფაკულტეტი"
+        aria-label="პირველი პასუხი"
+        style="flex:1;min-width:180px"
+      >
+
+      <select class="poll-option-color"
+              aria-label="პირველი პასუხის ფერი"
+              style="min-width:140px">
+        <option value="yellow" selected>💛 ყვითელი</option>
+      </select>
+
+      <button class="quiet poll-remove-option"
+              type="button"
+              aria-label="პასუხის წაშლა">
+        ✕
+      </button>
+    </div>
+
+    <!-- Option 2 -->
+    <div class="poll-option-row"
+         style="display:flex;gap:10px;
+                align-items:center;flex-wrap:wrap">
+
+      <span class="poll-heart-preview"
+            style="font-size:26px">💚</span>
+
+      <input
+        class="poll-option-text"
+        type="text"
+        maxlength="200"
+        value="ფიზიკური მედიცინისა და რეაბილიტაციის ფაკულტეტი"
+        aria-label="მეორე პასუხი"
+        style="flex:1;min-width:180px"
+      >
+
+      <select class="poll-option-color"
+              aria-label="მეორე პასუხის ფერი"
+              style="min-width:140px">
+        <option value="green" selected>💚 მწვანე</option>
+      </select>
+
+      <button class="quiet poll-remove-option"
+              type="button"
+              aria-label="პასუხის წაშლა">
+        ✕
+      </button>
+    </div>
+
+    <!-- Option 3 -->
+    <div class="poll-option-row"
+         style="display:flex;gap:10px;
+                align-items:center;flex-wrap:wrap">
+
+      <span class="poll-heart-preview"
+            style="font-size:26px">🩵</span>
+
+      <input
+        class="poll-option-text"
+        type="text"
+        maxlength="200"
+        value="სპორტის მენეჯმენტისა და ადმინისტრირების ფაკულტეტი"
+        aria-label="მესამე პასუხი"
+        style="flex:1;min-width:180px"
+      >
+
+      <select class="poll-option-color"
+              aria-label="მესამე პასუხის ფერი"
+              style="min-width:140px">
+        <option value="lightblue" selected>🩵 ცისფერი</option>
+      </select>
+
+      <button class="quiet poll-remove-option"
+              type="button"
+              aria-label="პასუხის წაშლა">
+        ✕
+      </button>
+    </div>
+
+  </div>
+
+  <!-- ADD OPTION -->
+
+  <div style="margin-top:15px">
+
+    <button
+      class="quiet"
+      id="pollAddOption"
+      type="button">
+      + პასუხის ვარიანტის დამატება
+    </button>
+
+    <div
+      id="pollLimitError"
+      role="alert"
+      style="display:none;
+             color:#c74955;
+             font-size:11px;
+             margin-top:9px">
+      მიღწეულია მაქსიმუმი — 12 ვარიანტი.
+    </div>
+
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- ACTIONS -->
+
+  <div class="row" style="flex-wrap:wrap">
+
+    <button
+      class="primary"
+      id="pollSavePrepared"
+      type="button">
+      ✦ Poll-ის წინასწარ შენახვა
+    </button>
+
+    <button
+      class="quiet"
+      id="pollPublishNow"
+      type="button">
+      ▦ Poll-ის გამოქვეყნება
+    </button>
+
+    <button
+      class="quiet"
+      id="pollResetForm"
+      type="button">
+      გასუფთავება
+    </button>
+
+  </div>
+
+  <p class="smallprint" style="margin-top:14px">
+    შენახული Poll არ გამოჩნდება სტუდენტებთან,
+    სანამ მას არ გამოაქვეყნებ.
+    გამოქვეყნებისას პროექტორი ავტომატურად
+    QR რეჟიმზე გადავა.
+  </p>
+
+  <div id="pollEditorMessage"
+       aria-live="polite"
+       style="margin-top:12px"></div>
+
+</div>
+
+<!-- END LIVE POLL CREATOR -->
+        
         <!-- PUBLISHED QUESTION HISTORY -->
         <div class="sectiontitle">
           <h2>კითხვების ისტორია</h2>
