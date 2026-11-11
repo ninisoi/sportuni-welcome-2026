@@ -1039,4 +1039,655 @@ preparedLoad();
 // Editing or saving is not interrupted by refresh.
 setInterval(preparedLoad, 8000);
 
+/* ==========================================================
+   SPORTUNI WELCOME 2026 — LIVE POLL EDITOR
+   Poll creation, editing, saving and publishing.
+   Existing text-question functions remain unchanged.
+========================================================== */
+
+(function setupLivePollEditor() {
+
+  const panel = document.getElementById('pollCreatorPanel');
+
+  // If the HTML panel is not yet installed,
+  // do not affect existing admin functionality.
+  if (!panel) {
+    console.warn('Live Poll HTML panel not found');
+    return;
+  }
+
+  const get = id => document.getElementById(id);
+
+  const editor = get('pollOptionsEditor');
+  const question = get('pollQuestionInput');
+  const count = get('pollOptionCount');
+  const limitError = get('pollLimitError');
+  const message = get('pollEditorMessage');
+
+  const saveButton = get('pollSavePrepared');
+  const publishButton = get('pollPublishNow');
+  const addButton = get('pollAddOption');
+  const resetButton = get('pollResetForm');
+
+  const palette = [
+    {key:'yellow', heart:'💛', name:'ყვითელი'},
+    {key:'green', heart:'💚', name:'მწვანე'},
+    {key:'lightblue', heart:'🩵', name:'ცისფერი'},
+    {key:'red', heart:'❤️', name:'წითელი'},
+    {key:'orange', heart:'🧡', name:'ნარინჯისფერი'},
+    {key:'blue', heart:'💙', name:'ლურჯი'},
+    {key:'purple', heart:'💜', name:'იისფერი'},
+    {key:'pink', heart:'🩷', name:'ვარდისფერი'},
+    {key:'brown', heart:'🤎', name:'ყავისფერი'},
+    {key:'black', heart:'🖤', name:'შავი'},
+    {key:'gray', heart:'🩶', name:'ნაცრისფერი'},
+    {key:'white', heart:'🤍', name:'თეთრი'}
+  ];
+
+  const MAX_OPTIONS = 12;
+  const MIN_OPTIONS = 2;
+
+  let editingId = null;
+  let busy = false;
+  let savedPolls = [];
+
+  // Saved polls are displayed in the same editor panel.
+  const savedSection = document.createElement('div');
+
+  savedSection.style.marginTop = '25px';
+
+  savedSection.innerHTML = `
+    <div class="divider"></div>
+    <div class="sectiontitle">
+      <h2>✦ შენახული Poll-ები</h2>
+      <span class="badge" id="pollSavedCount">
+        0 Poll
+      </span>
+    </div>
+    <p class="smallprint">
+      შენახული გამოკითხვები შეგიძლია
+      შეცვალო, წაშალო ან გაუშვა.
+    </p>
+    <div id="pollSavedList"
+         class="prepared-question-list">
+      <div class="empty">იტვირთება…</div>
+    </div>
+  `;
+
+  panel.appendChild(savedSection);
+
+  const savedList = get('pollSavedList');
+  const savedCount = get('pollSavedCount');
+
+  function note(text, error = false) {
+    message.textContent = text;
+    message.style.color =
+      error ? '#c74955' : '#17835e';
+  }
+
+  function rows() {
+    return [...editor.querySelectorAll('.poll-option-row')];
+  }
+
+  function availableColor() {
+    const used = new Set(
+      rows().map(row =>
+        row.querySelector('.poll-option-color').value
+      )
+    );
+
+    return palette.find(color => !used.has(color.key));
+  }
+
+  function updateCounter() {
+    const amount = rows().length;
+
+    count.textContent = amount + ' / ' + MAX_OPTIONS;
+
+    // The plus button stays available so the
+    // maximum-limit warning can be displayed.
+    rows().forEach(row => {
+      row.querySelector('.poll-remove-option').disabled =
+        amount <= MIN_OPTIONS;
+    });
+  }
+
+  function refreshColorSelectors() {
+    const allRows = rows();
+
+    allRows.forEach(row => {
+      const selector = row.querySelector('.poll-option-color');
+      const previous = selector.value;
+
+      selector.replaceChildren();
+
+      palette.forEach(color => {
+        const option = document.createElement('option');
+        option.value = color.key;
+        option.textContent =
+          color.heart + ' ' + color.name;
+
+        selector.appendChild(option);
+      });
+
+      if (palette.some(p => p.key === previous)) {
+        selector.value = previous;
+      } else {
+        selector.value = 'yellow';
+      }
+
+      const color = palette.find(
+        p => p.key === selector.value
+      );
+
+      row.querySelector('.poll-heart-preview').textContent =
+        color?.heart || '💛';
+    });
+
+    updateCounter();
+  }
+
+  function makeRow(text = '', colorKey = null) {
+    const color = palette.find(
+      p => p.key === colorKey
+    ) || availableColor() || palette[0];
+
+    const row = document.createElement('div');
+    row.className = 'poll-option-row';
+
+    row.style.cssText =
+      'display:flex;gap:10px;align-items:center;' +
+      'flex-wrap:wrap;margin-bottom:2px';
+
+    const heart = document.createElement('span');
+    heart.className = 'poll-heart-preview';
+    heart.style.fontSize = '26px';
+    heart.textContent = color.heart;
+
+    const input = document.createElement('input');
+    input.className = 'poll-option-text';
+    input.type = 'text';
+    input.maxLength = 200;
+    input.value = text;
+    input.placeholder = 'ჩაწერე პასუხის ვარიანტი';
+    input.style.cssText =
+      'flex:1;min-width:180px';
+
+    const selector = document.createElement('select');
+    selector.className = 'poll-option-color';
+    selector.style.minWidth = '140px';
+
+    palette.forEach(item => {
+      const option = document.createElement('option');
+      option.value = item.key;
+      option.textContent =
+        item.heart + ' ' + item.name;
+      selector.appendChild(option);
+    });
+
+    selector.value = color.key;
+
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'quiet poll-remove-option';
+    remove.textContent = '✕';
+    remove.title = 'პასუხის წაშლა';
+
+    row.append(heart, input, selector, remove);
+
+    selector.addEventListener('change', () => {
+      const chosen = palette.find(
+        p => p.key === selector.value
+      );
+
+      heart.textContent = chosen?.heart || '💛';
+
+      // Warn about duplicate colors.
+      const selectedColors = rows().map(
+        r => r.querySelector('.poll-option-color').value
+      );
+
+      const duplicates = selectedColors.some(
+        (key, index) =>
+          selectedColors.indexOf(key) !== index
+      );
+
+      note(
+        duplicates
+          ? 'ერთ Poll-ში ერთი და იგივე ფერი არ უნდა განმეორდეს.'
+          : '',
+        duplicates
+      );
+    });
+
+    remove.addEventListener('click', () => {
+      if (rows().length <= MIN_OPTIONS) {
+        note(
+          'Poll-ს მინიმუმ ორი პასუხი სჭირდება.',
+          true
+        );
+        return;
+      }
+
+      row.remove();
+      refreshColorSelectors();
+      limitError.style.display = 'none';
+    });
+
+    return row;
+  }
+
+  function readOptions() {
+    return rows().map(row => ({
+      text: row.querySelector('.poll-option-text')
+        .value.trim(),
+      color_key: row.querySelector('.poll-option-color')
+        .value
+    }));
+  }
+
+  function validate() {
+    const text = question.value.trim();
+    const options = readOptions();
+
+    if (!text || text.length > 200) {
+      throw Error(
+        'კითხვა უნდა შეიცავდეს 1–200 სიმბოლოს.'
+      );
+    }
+
+    if (
+      options.length < MIN_OPTIONS ||
+      options.length > MAX_OPTIONS
+    ) {
+      throw Error('Poll-ს სჭირდება 2–12 პასუხი.');
+    }
+
+    if (options.some(o =>
+      !o.text || o.text.length > 200
+    )) {
+      throw Error(
+        'შეავსე ყველა პასუხის ტექსტი.'
+      );
+    }
+
+    const colors = options.map(o => o.color_key);
+
+    if (new Set(colors).size !== colors.length) {
+      throw Error(
+        'პასუხებს განსხვავებული ფერები უნდა ჰქონდეს.'
+      );
+    }
+
+    return {text, options};
+  }
+
+  function resetForm() {
+    editingId = null;
+    question.value = '';
+    get('pollQuestionCount').textContent = '0 / 200';
+
+    editor.replaceChildren(
+      makeRow('', 'yellow'),
+      makeRow('', 'green'),
+      makeRow('', 'lightblue')
+    );
+
+    saveButton.textContent =
+      '✦ Poll-ის წინასწარ შენახვა';
+
+    refreshColorSelectors();
+    limitError.style.display = 'none';
+    note('');
+  }
+
+  function loadIntoEditor(poll) {
+    editingId = poll.id;
+    question.value = poll.question_text;
+
+    get('pollQuestionCount').textContent =
+      question.value.length + ' / 200';
+
+    editor.replaceChildren();
+
+    (poll.options || []).forEach(option => {
+      editor.appendChild(
+        makeRow(option.text, option.color_key)
+      );
+    });
+
+    refreshColorSelectors();
+
+    saveButton.textContent =
+      '✓ Poll-ის ცვლილებების შენახვა';
+
+    note('რედაქტირდება შენახული Poll.');
+
+    panel.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start'
+    });
+  }
+
+  function setBusy(value) {
+    busy = value;
+
+    saveButton.disabled = value;
+    publishButton.disabled = value;
+    resetButton.disabled = value;
+    addButton.disabled = value;
+  }
+
+  async function loadSaved() {
+    try {
+      const result = await api('/api/admin/polls');
+
+      savedPolls = Array.isArray(result.polls)
+        ? result.polls
+        : [];
+
+      renderSaved();
+
+    } catch (error) {
+      savedList.textContent =
+        'Poll-ების ჩატვირთვა ვერ მოხერხდა: ' +
+        error.message;
+    }
+  }
+
+  function renderSaved() {
+    savedCount.textContent =
+      savedPolls.length + ' Poll';
+
+    savedList.replaceChildren();
+
+    if (!savedPolls.length) {
+      const empty = document.createElement('div');
+      empty.className = 'empty';
+      empty.textContent =
+        'ჯერ არ გაქვს შენახული Poll.';
+      savedList.appendChild(empty);
+      return;
+    }
+
+    savedPolls.forEach(poll => {
+      const entry = document.createElement('div');
+      entry.className = 'prepared-entry';
+
+      const main = document.createElement('div');
+      main.className = 'prepared-entry-main';
+
+      const title = document.createElement('p');
+      title.textContent = poll.question_text;
+
+      const subtitle = document.createElement('small');
+      subtitle.textContent =
+        (poll.options?.length || 0) +
+        ' ვარიანტი · ' +
+        (poll.last_published_at
+          ? 'უკვე გამოყენებულია'
+          : 'მზადაა გამოსაქვეყნებლად');
+
+      main.append(title, subtitle);
+
+      const actions = document.createElement('div');
+      actions.className = 'prepared-entry-actions';
+
+      function actionButton(label, className, handler) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = className;
+        button.textContent = label;
+        button.addEventListener('click', handler);
+        return button;
+      }
+
+      actions.append(
+        actionButton(
+          '✎ შეცვლა',
+          'mini',
+          () => loadIntoEditor(poll)
+        ),
+        actionButton(
+          'გაშვება ↗',
+          'mini ok',
+          () => publishSaved(poll)
+        ),
+        actionButton(
+          'წაშლა',
+          'mini no',
+          () => deleteSaved(poll)
+        )
+      );
+
+      entry.append(main, actions);
+      savedList.appendChild(entry);
+    });
+  }
+
+  async function publishSaved(poll) {
+    if (busy) return;
+
+    const confirmed = await confirmAction(
+      'Poll-ის გამოქვეყნება',
+      'გამოვაქვეყნოთ „' +
+      poll.question_text +
+      '“? პროექტორი ავტომატურად QR რეჟიმზე გადავა.'
+    );
+
+    if (!confirmed) return;
+
+    setBusy(true);
+
+    try {
+      const result = await api(
+        '/api/admin/polls/' +
+        encodeURIComponent(poll.id) +
+        '/publish',
+        'POST',
+        {}
+      );
+
+      if (result.ok !== true) {
+        throw Error('გამოქვეყნება ვერ დადასტურდა');
+      }
+
+      toast('Poll გამოქვეყნდა · QR ჩართულია');
+      await loadSaved();
+      await refresh();
+
+    } catch (error) {
+      note(error.message, true);
+      toast(error.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function deleteSaved(poll) {
+    if (busy) return;
+
+    const confirmed = await confirmAction(
+      'შენახული Poll-ის წაშლა',
+      'წავშალოთ „' +
+      poll.question_text +
+      '“? უკვე გამოქვეყნებული შედეგები შენარჩუნდება.'
+    );
+
+    if (!confirmed) return;
+
+    setBusy(true);
+
+    try {
+      await api(
+        '/api/admin/polls/' +
+        encodeURIComponent(poll.id),
+        'DELETE'
+      );
+
+      if (editingId === poll.id) resetForm();
+
+      toast('შენახული Poll წაიშალა');
+      await loadSaved();
+
+    } catch (error) {
+      note(error.message, true);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // Existing HTML initially contains 3 sample rows.
+  // Replace their color selectors with the full palette.
+  refreshColorSelectors();
+
+  // Fix the initial sample color selections.
+  const initialRows = rows();
+
+  ['yellow', 'green', 'lightblue'].forEach(
+    (key, index) => {
+      const row = initialRows[index];
+      if (!row) return;
+
+      const selector = row.querySelector(
+        '.poll-option-color'
+      );
+      selector.value = key;
+    }
+  );
+
+  // Use the same handlers on initial rows.
+  initialRows.forEach(row => {
+    const input = row.querySelector('.poll-option-text');
+    const color = row.querySelector('.poll-option-color');
+    const replacement = makeRow(input.value, color.value);
+    row.replaceWith(replacement);
+  });
+
+  refreshColorSelectors();
+
+  question.addEventListener('input', () => {
+    get('pollQuestionCount').textContent =
+      question.value.length + ' / 200';
+  });
+
+  addButton.addEventListener('click', () => {
+    if (rows().length >= MAX_OPTIONS) {
+      limitError.style.display = 'block';
+      note(
+        'მაქსიმუმ 12 პასუხის ვარიანტის დამატება შეიძლება.',
+        true
+      );
+      return;
+    }
+
+    const next = availableColor();
+
+    if (!next) {
+      limitError.style.display = 'block';
+      return;
+    }
+
+    editor.appendChild(makeRow('', next.key));
+    updateCounter();
+    limitError.style.display = 'none';
+  });
+
+  resetButton.addEventListener('click', resetForm);
+
+  saveButton.addEventListener('click', async () => {
+    if (busy) return;
+
+    let payload;
+
+    try {
+      payload = validate();
+    } catch (error) {
+      note(error.message, true);
+      return;
+    }
+
+    setBusy(true);
+
+    try {
+      if (editingId) {
+        await api(
+          '/api/admin/polls/' +
+          encodeURIComponent(editingId),
+          'PATCH',
+          payload
+        );
+        toast('Poll-ის ცვლილებები შენახულია');
+      } else {
+        await api(
+          '/api/admin/polls',
+          'POST',
+          payload
+        );
+        toast('Poll წინასწარ შენახულია');
+      }
+
+      resetForm();
+      await loadSaved();
+
+    } catch (error) {
+      note(error.message, true);
+      toast(error.message);
+    } finally {
+      setBusy(false);
+    }
+  });
+
+  publishButton.addEventListener('click', async () => {
+    if (busy) return;
+
+    let payload;
+
+    try {
+      payload = validate();
+    } catch (error) {
+      note(error.message, true);
+      return;
+    }
+
+    const confirmed = await confirmAction(
+      'Poll-ის პირდაპირ გამოქვეყნება',
+      'ახალი Poll გამოჩნდება სტუდენტებთან ' +
+      'და პროექტორი ავტომატურად QR რეჟიმზე გადავა. ' +
+      'გავაგრძელოთ?'
+    );
+
+    if (!confirmed) return;
+
+    setBusy(true);
+
+    try {
+      const result = await api(
+        '/api/admin/polls/publish-now',
+        'POST',
+        payload
+      );
+
+      if (result.ok !== true) {
+        throw Error('გამოქვეყნება ვერ დადასტურდა');
+      }
+
+      toast('Poll გამოქვეყნდა · QR ჩართულია');
+      resetForm();
+      await refresh();
+
+    } catch (error) {
+      note(error.message, true);
+      toast(error.message);
+    } finally {
+      setBusy(false);
+    }
+  });
+
+  loadSaved();
+
+})();
+  
+/* END LIVE POLL EDITOR */
+
 })();
