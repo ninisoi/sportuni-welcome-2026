@@ -9,6 +9,89 @@
 <link href="https://fonts.googleapis.com" rel="preconnect"/>
 <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Georgian:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+
+/* =========================================
+   SPORTUNI LIVE POLL — MOBILE OPTIONS
+   Existing page design remains unchanged
+========================================= */
+
+.poll-options {
+  display: grid;
+  gap: 11px;
+  margin-bottom: 17px;
+}
+
+.poll-option {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  min-height: 74px;
+  text-align: left;
+  border: 1.5px solid #52728b;
+  border-radius: 16px;
+  background: rgba(3,29,51,.57);
+  color: #fff;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color .18s, background .18s;
+}
+
+.poll-option.selected {
+  border-color: #FDCB4E;
+  background: rgba(26,76,108,.75);
+}
+
+.poll-heart {
+  width: 47px;
+  height: 47px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  font-size: 27px;
+  line-height: 1;
+}
+
+.poll-label {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 750;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.poll-radio {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 1.5px solid #90acc0;
+}
+
+.poll-option.selected .poll-radio {
+  border: 5px solid #FDCB4E;
+  background: #093759;
+}
+
+.poll-error {
+  margin: 0 0 12px;
+  color: #ffb7bc;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.poll-error:empty {
+  display: none;
+}
+
+/* Keep the page clean when switching question types */
+[hidden] {
+  display: none !important;
+}
+
 <style>
 :root{--navy:#093759;--deep:#051c33;--gold:#FDCB4E;--text:#fff;--muted:#c6d8e8;--card:#133e61;--good:#a3edcf;--outline:rgba(255,255,255,.19)}
 *{box-sizing:border-box}html{min-height:100%;background:var(--deep)}body{margin:0;min-height:100vh;font-family:'Noto Sans Georgian',system-ui,sans-serif;color:white;background:radial-gradient(circle at 73% 5%,#266895 0%,transparent 36%),radial-gradient(circle at 8% 70%,#174e73 0%,transparent 38%),linear-gradient(160deg,#093759,#062b48 55%,#041a2e);overflow-x:hidden}
@@ -48,7 +131,27 @@ footer{margin-top:auto;text-align:center;font-size:10px;color:#9fb9ce;letter-spa
 <section class="intro"><div class="kicker"><i></i> ახლა შენი ჯერია</div><h1>გახდი ჩვენი<br/>ისტორიის ნაწილი<span style="color:var(--gold)">.</span></h1><p>შენი ხმა მნიშვნელოვანია! უპასუხე კითხვას და შენი სიტყვებიც გახდება SPORTUNI-ს დღევანდელი დღის ნაწილი.</p></section>
 <section aria-label="დღევანდელი კითხვა" class="question-area"><span aria-hidden="true" class="q-badge">?</span><div class="question-inner"><div class="question-eyebrow">✦ დღევანდელი კითხვა</div><h2 id="question">კითხვა იტვირთება…</h2><div class="question-mini">ჩემპიონები სწავლობენ აქ 🏆</div></div></section>
 <section class="card" id="formCard"><div class="card-head"><h3>შენი პასუხი</h3></div><p class="prompt">დაწერე ის, რასაც ფიქრობ — მოკლედ, გულწრფელად და შენი სიტყვებით.</p>
-<form id="answerForm"><label for="answer" style="position:absolute;left:-9999px">შენი პასუხი</label><textarea aria-describedby="counter answerError" autocomplete="off" id="answer" placeholder="ჩაწერე შენი პასუხი აქ..." spellcheck="true"></textarea><p class="field-error-message" id="answerError" role="alert">ველი ცარიელია — ჩაწერე შენი პასუხი.</p><div class="form-meta"><span class="hint">მაქსიმუმ 100 სიმბოლო</span><span class="counter" id="counter">0 / 100</span></div><div class="emoji-row"><span>დაამატე ემოცია</span><button aria-label="ლურჯი გული" class="emoji" data-emoji="💙" type="button">💙</button><button aria-label="თასი" class="emoji" data-emoji="🏆" type="button">🏆</button><button aria-label="ცეცხლი" class="emoji" data-emoji="🔥" type="button">🔥</button><button aria-label="ნათება" class="emoji" data-emoji="✨" type="button">✨</button><button aria-label="ყვითელი გული" class="emoji" data-emoji="💛" type="button">💛</button></div><button class="primary" id="sendBtn" type="submit">გაგზავნა  ↗</button></form><div class="note">გაგზავნამდე შეგიძლია ტექსტი პირდაპირ ველში ჩაასწორო.</div>
+<form id="answerForm">
+<!-- LIVE POLL: appears only for poll questions -->
+<div id="pollInputArea" hidden>
+
+  <div
+    id="pollOptions"
+    class="poll-options"
+    role="radiogroup"
+    aria-label="აირჩიე ერთი პასუხი">
+  </div>
+
+  <p
+    id="pollError"
+    class="poll-error"
+    role="alert"
+    aria-live="polite">
+  </p>
+
+</div>
+<!-- END LIVE POLL -->
+<label for="answer" style="position:absolute;left:-9999px">შენი პასუხი</label><textarea aria-describedby="counter answerError" autocomplete="off" id="answer" placeholder="ჩაწერე შენი პასუხი აქ..." spellcheck="true"></textarea><p class="field-error-message" id="answerError" role="alert">ველი ცარიელია — ჩაწერე შენი პასუხი.</p><div class="form-meta"><span class="hint">მაქსიმუმ 100 სიმბოლო</span><span class="counter" id="counter">0 / 100</span></div><div class="emoji-row"><span>დაამატე ემოცია</span><button aria-label="ლურჯი გული" class="emoji" data-emoji="💙" type="button">💙</button><button aria-label="თასი" class="emoji" data-emoji="🏆" type="button">🏆</button><button aria-label="ცეცხლი" class="emoji" data-emoji="🔥" type="button">🔥</button><button aria-label="ნათება" class="emoji" data-emoji="✨" type="button">✨</button><button aria-label="ყვითელი გული" class="emoji" data-emoji="💛" type="button">💛</button></div><button class="primary" id="sendBtn" type="submit">გაგზავნა  ↗</button></form><div class="note">გაგზავნამდე შეგიძლია ტექსტი პირდაპირ ველში ჩაასწორო.</div>
 </section><section class="submitted-state" hidden="" id="submittedState"><div class="lock-icon">✓</div><h3>შენი პასუხი უკვე მიღებულია!</h3><p>დაელოდე შემდეგ კითხვას.</p></section>
 <footer>SPORTUNI WELCOME 2026 · ჩემპიონები სწავლობენ აქ</footer>
 </main>
