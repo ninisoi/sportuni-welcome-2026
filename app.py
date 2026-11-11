@@ -365,5 +365,117 @@ def grant():
     db('staff_roles',method='POST',body={'user_id':uid,'role':'moderator','is_active':True},prefer='resolution=merge-duplicates,return=minimal')
     return jsonify(ok=True)
 
+# ============================================================
+# PREPARED QUESTIONS — saved privately until the admin publishes
+# ============================================================
+from datetime import datetime, timezone
+
+
+def prepared_id(value):
+    try:
+        return str(uuid.UUID(str(value)))
+    except (ValueError, TypeError, AttributeError):
+        raise ApiError('მომზადებული კითხვის ID არასწორია')
+
+
+def prepared_text(value):
+    if not isinstance(value, str) or not 1 <= len(value.strip()) <= 200:
+        raise ApiError('კითხვა უნდა შეიცავდეს 1–200 სიმბოლოს')
+    return value.strip()
+
+
+def prepared_get(qid):
+    result = one('prepared_questions', id=qid)
+    if not result:
+        raise ApiError('მომზადებული კითხვა ვერ მოიძებნა', 404)
+    return result
+
+
+def prepared_list():
+    return db('prepared_questions', params={
+        'select': 'id,question_text,sort_order,last_published_at,created_at,updated_at',
+        'order': 'sort_order.asc,created_at.asc',
+        'limit': '500'
+    }) or []
+
+
+@app.route('/api/admin/prepared-questions', methods=['GET', 'POST'])
+def prepared_questions():
+    staff('admin')
+    if request.method == 'GET':
+        return jsonify(questions=prepared_list())
+
+    text = prepared_text(json_input().get('text'))
+    existing = prepared_list()
+    if len(existing) >= 500:
+        raise ApiError('მაქსიმუმ 500 მომზადებული კითხვა')
+    next_order = max((int(x['sort_order']) for x in existing), default=0) + 1
+    created = db('prepared_questions', method='POST', body={
+        'question_text': text,
+        'sort_order': next_order
+    }, prefer='return=representation')
+    return jsonify(ok=True, question=created[0]), 201
+
+
+@app.route('/api/admin/prepared-questions/reorder', methods=['POST'])
+def prepared_reorder():
+    staff('admin')
+    ids = json_input().get('question_ids')
+    if not isinstance(ids, list) or len(ids) > 500:
+        raise ApiError('კითხვების სია არასწორია')
+    normalized = [prepared_id(x) for x in ids]
+    if len(normalized) != len(set(normalized)):
+        raise ApiError('სიაში განმეორებული კითხვებია')
+    existing = prepared_list()
+    if set(normalized) != {x['id'] for x in existing}:
+        raise ApiError('კითხვების სია შეიცვალა. განაახლე გვერდი.', 409)
+    # If a request fails mid-way, the operation may be partially applied.
+    # The next page refresh reads the persisted order.
+    for position, qid in enumerate(normalized, start=1):
+        db('prepared_questions', method='PATCH', params={'id': 'eq.' + qid}, body={
+            'sort_order': position,
+            'updated_at': datetime.now(timezone.utc).isoformat()
+        })
+    return jsonify(ok=True)
+
+
+@app.route('/api/admin/prepared-questions/<qid>', methods=['PATCH', 'DELETE'])
+def prepared_item(qid):
+    staff('admin')
+    qid = prepared_id(qid)
+    prepared_get(qid)
+    if request.method == 'DELETE':
+        # Deletes only the saved draft; published questions are separate rows.
+        db('prepared_questions', method='DELETE', params={'id': 'eq.' + qid})
+        return jsonify(ok=True)
+
+    text = prepared_text(json_input().get('text'))
+    db('prepared_questions', method='PATCH', params={'id': 'eq.' + qid}, body={
+        'question_text': text,
+        'updated_at': datetime.now(timezone.utc).isoformat()
+    })
+    return jsonify(ok=True)
+
+
+@app.route('/api/admin/prepared-questions/<qid>/publish', methods=['POST'])
+def prepared_publish(qid):
+    uid, _ = staff('admin')
+    qid = prepared_id(qid)
+    record = prepared_get(qid)
+    # Reuse the existing publication workflow: new question + QR screen.
+    published = db('rpc/publish_sportuni_question', method='POST', body={
+        'p_text': record['question_text'],
+        'p_admin': uid
+    })
+    try:
+        now = datetime.now(timezone.utc).isoformat()
+        db('prepared_questions', method='PATCH', params={'id': 'eq.' + qid}, body={
+            'last_published_at': now,
+            'updated_at': now
+        })
+    except ApiError:
+        app.logger.warning('Prepared question published; usage timestamp update failed')
+    return jsonify(ok=True, publication=published)
+
 if __name__=="__main__":
     app.run(debug=False, port=8000)
