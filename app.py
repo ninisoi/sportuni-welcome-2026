@@ -477,5 +477,250 @@ def prepared_publish(qid):
         app.logger.warning('Prepared question published; usage timestamp update failed')
     return jsonify(ok=True, publication=published)
 
+# ============================================================
+# LIVE POLL — ADMIN API
+# SPORTUNI WELCOME 2026
+#
+# Uses SQL functions 19, 20, 21 and 22.
+# Does not replace existing text-question routes.
+# ============================================================
+
+def poll_payload():
+    data = json_input()
+
+    text = data.get('text')
+    options = data.get('options')
+
+    if not isinstance(text, str):
+        raise ApiError('შეიყვანე Poll-ის კითხვა')
+
+    text = text.strip()
+
+    if not 1 <= len(text) <= 200:
+        raise ApiError(
+            'კითხვა უნდა შეიცავდეს 1–200 სიმბოლოს'
+        )
+
+    if not isinstance(options, list):
+        raise ApiError('დაამატე პასუხების ვარიანტები')
+
+    if not 2 <= len(options) <= 12:
+        raise ApiError(
+            'Poll-ს უნდა ჰქონდეს 2–12 პასუხის ვარიანტი'
+        )
+
+    clean = []
+    used_colors = set()
+
+    for index, option in enumerate(options):
+
+        if not isinstance(option, dict):
+            raise ApiError('პასუხის ფორმატი არასწორია')
+
+        label = option.get('text')
+        color = option.get('color_key')
+
+        if not isinstance(label, str):
+            raise ApiError('შეიყვანე პასუხის ტექსტი')
+
+        if not isinstance(color, str):
+            raise ApiError('აირჩიე პასუხის ფერი')
+
+        label = label.strip()
+        color = color.strip()
+
+        if not 1 <= len(label) <= 200:
+            raise ApiError(
+                'თითოეული პასუხი უნდა შეიცავდეს '
+                '1–200 სიმბოლოს'
+            )
+
+        if color in used_colors:
+            raise ApiError(
+                'ერთ Poll-ში ფერები არ უნდა განმეორდეს'
+            )
+
+        used_colors.add(color)
+
+        clean.append({
+            'text': label,
+            'color_key': color
+        })
+
+    return text, clean
+
+
+@app.route('/api/admin/polls/palette', methods=['GET'])
+def poll_palette_api():
+    staff('admin')
+
+    colors = db(
+        'poll_palette',
+        params={
+            'select': 'color_key,hex_color,heart,color_name',
+            'order': 'color_key.asc',
+            'limit': '20'
+        }
+    ) or []
+
+    return jsonify(colors=colors, max_options=12)
+
+
+@app.route('/api/admin/polls', methods=['GET', 'POST'])
+def polls_api():
+
+    uid, _ = staff('admin')
+
+    if request.method == 'GET':
+
+        prepared = db(
+            'prepared_questions',
+            params={
+                'question_type': 'eq.poll',
+                'select': (
+                    'id,question_text,question_type,'
+                    'sort_order,last_published_at,'
+                    'created_at,updated_at'
+                ),
+                'order': 'sort_order.asc',
+                'limit': '500'
+            }
+        ) or []
+
+        options = db(
+            'prepared_poll_options',
+            params={
+                'select': (
+                    'id,prepared_question_id,option_text,'
+                    'color_key,sort_order'
+                ),
+                'order': 'sort_order.asc',
+                'limit': '6000'
+            }
+        ) or []
+
+        by_question = {}
+
+        for option in options:
+            key = option['prepared_question_id']
+            by_question.setdefault(key, []).append({
+                'id': option['id'],
+                'text': option['option_text'],
+                'color_key': option['color_key'],
+                'sort_order': option['sort_order']
+            })
+
+        for item in prepared:
+            item['options'] = by_question.get(
+                item['id'], []
+            )
+
+        return jsonify(polls=prepared)
+
+    text, options = poll_payload()
+
+    result = db(
+        'rpc/save_sportuni_prepared_poll',
+        method='POST',
+        body={
+            'p_text': text,
+            'p_admin': uid,
+            'p_options': options
+        }
+    )
+
+    return jsonify(result), 201
+
+
+@app.route(
+    '/api/admin/polls/<poll_id>',
+    methods=['PATCH', 'DELETE']
+)
+def poll_item_api(poll_id):
+
+    uid, _ = staff('admin')
+    poll_id = prepared_id(poll_id)
+
+    record = prepared_get(poll_id)
+
+    if record.get('question_type') != 'poll':
+        raise ApiError('ეს ჩანაწერი Poll არ არის', 400)
+
+    if request.method == 'DELETE':
+
+        # Deletes the prepared poll only.
+        # Previously published results remain separate.
+        db(
+            'prepared_questions',
+            method='DELETE',
+            params={'id': 'eq.' + poll_id}
+        )
+
+        return jsonify(ok=True)
+
+    text, options = poll_payload()
+
+    result = db(
+        'rpc/update_sportuni_prepared_poll',
+        method='POST',
+        body={
+            'p_prepared_id': poll_id,
+            'p_text': text,
+            'p_admin': uid,
+            'p_options': options
+        }
+    )
+
+    return jsonify(result)
+
+
+@app.route(
+    '/api/admin/polls/<poll_id>/publish',
+    methods=['POST']
+)
+def poll_publish_api(poll_id):
+
+    uid, _ = staff('admin')
+    poll_id = prepared_id(poll_id)
+
+    record = prepared_get(poll_id)
+
+    if record.get('question_type') != 'poll':
+        raise ApiError('ეს ჩანაწერი Poll არ არის', 400)
+
+    result = db(
+        'rpc/publish_sportuni_prepared_poll',
+        method='POST',
+        body={
+            'p_prepared_id': poll_id,
+            'p_admin': uid
+        }
+    )
+
+    return jsonify(result)
+
+
+@app.route('/api/admin/polls/publish-now', methods=['POST'])
+def poll_publish_now_api():
+
+    uid, _ = staff('admin')
+    text, options = poll_payload()
+
+    result = db(
+        'rpc/publish_sportuni_poll',
+        method='POST',
+        body={
+            'p_text': text,
+            'p_admin': uid,
+            'p_options': options
+        }
+    )
+
+    return jsonify(result)
+
+# ============================================================
+# END LIVE POLL API
+# ============================================================
+
 if __name__=="__main__":
     app.run(debug=False, port=8000)
