@@ -1611,5 +1611,583 @@ textarea{resize:vertical}
 <div class="toast" id="toast"></div>
 
 <script src="/static/admin.js"></script>
+  
+<!-- =====================================================
+     SPORTUNI WELCOME 2026
+     STEP 11 — LIVE POLL TEST STUDIO
+     Admin-only visual test. No database writes.
+===================================================== -->
+
+<style>
+  #suPollStudio {
+    display: grid;
+    gap: 16px;
+    margin-top: 16px;
+  }
+
+  #suPollStudio .su-test-controls {
+    padding: 17px;
+    background: #f6f9fc;
+    border: 1px solid #dce7ef;
+    border-radius: 14px;
+  }
+
+  #suPollStudio .su-test-select {
+    width: 100%;
+    padding: 12px;
+    margin: 8px 0 12px;
+    border: 1px solid #d8e3ed;
+    border-radius: 10px;
+    background: white;
+    color: #173c58;
+  }
+
+  #suPollStudio .su-test-row {
+    display: grid;
+    grid-template-columns: 28px minmax(0, 1fr) 80px;
+    gap: 10px;
+    align-items: center;
+    margin: 12px 0;
+  }
+
+  #suPollStudio .su-test-row label {
+    font-size: 12px;
+    overflow-wrap: anywhere;
+  }
+
+  #suPollStudio .su-test-row input {
+    width: 80px;
+    border: 1px solid #d8e3ed;
+    border-radius: 9px;
+    padding: 9px;
+    text-align: center;
+  }
+
+  #suPollStudio .su-test-screen {
+    width: 100%;
+    max-width: 850px;
+    aspect-ratio: 4 / 3;
+    position: relative;
+    overflow: hidden;
+    border-radius: 18px;
+    background: #0b3654;
+    color: white;
+    container-type: inline-size;
+    isolation: isolate;
+  }
+
+  #suPollStudio canvas {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    inset: 0;
+  }
+
+  #suPollStudio .su-screen-top {
+    position: absolute;
+    top: 3%;
+    left: 3%;
+    right: 3%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    pointer-events: none;
+  }
+
+  #suPollStudio .su-screen-brand {
+    font-size: 2.1cqw;
+    color: #ffda76;
+  }
+
+  #suPollStudio .su-screen-pill {
+    font-size: 1.7cqw;
+    color: #e8f1f7;
+    padding: .7cqw 1.3cqw;
+    border-radius: 30px;
+    background: #315674;
+  }
+
+  #suPollStudio .su-screen-question {
+    position: absolute;
+    top: 11%;
+    left: 7%;
+    right: 7%;
+    font-size: 3.5cqw;
+    line-height: 1.3;
+    font-weight: 800;
+    text-align: center;
+    margin: 0;
+    pointer-events: none;
+  }
+
+  #suPollStudio .su-screen-results {
+    position: absolute;
+    left: 4%;
+    right: 4%;
+    bottom: 8%;
+    display: flex;
+    justify-content: space-around;
+    flex-wrap: wrap;
+    gap: 8px;
+    pointer-events: none;
+  }
+
+  #suPollStudio .su-screen-result {
+    flex: 1 1 19%;
+    min-width: 0;
+    text-align: center;
+  }
+
+  #suPollStudio .su-screen-percent {
+    font-size: 4cqw;
+    font-weight: 800;
+  }
+
+  #suPollStudio .su-screen-heart {
+    font-size: 2.4cqw;
+    margin: .6cqw 0;
+  }
+
+  #suPollStudio .su-screen-name {
+    font-size: 1.45cqw;
+    color: #d1dfe9;
+    overflow-wrap: anywhere;
+  }
+
+  #suPollStudio .su-screen-footer {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 1.5%;
+    text-align: center;
+    font-size: 1.5cqw;
+    color: #cbd9e3;
+  }
+</style>
+
+<script>
+(function () {
+  "use strict";
+
+  const target = document.getElementById("pollTestList");
+  if (!target || target.dataset.initialized) return;
+
+  target.dataset.initialized = "true";
+
+  const palette = {
+    yellow:    ["#FDCB4E", "💛"],
+    green:     ["#49B99C", "💚"],
+    lightblue: ["#65A8E7", "🩵"],
+    blue:      ["#3478E5", "💙"],
+    red:       ["#EF5350", "❤️"],
+    orange:    ["#F59E0B", "🧡"],
+    purple:    ["#9B78CF", "💜"],
+    pink:      ["#E68CB4", "🩷"],
+    brown:     ["#9B6D50", "🤎"],
+    black:     ["#343B48", "🖤"],
+    gray:      ["#9CA3AF", "🩶"],
+    white:     ["#F6F7FB", "🤍"]
+  };
+
+  const sample = {
+    question_text: "რომელი ფაკულტეტიდან ხარ?",
+    options: [
+      {
+        text: "მწვრთნელთა ფაკულტეტი",
+        color_key: "yellow"
+      },
+      {
+        text: "ფიზიკური მედიცინისა და რეაბილიტაციის ფაკულტეტი",
+        color_key: "green"
+      },
+      {
+        text: "სპორტის მენეჯმენტისა და ადმინისტრირების ფაკულტეტი",
+        color_key: "lightblue"
+      }
+    ]
+  };
+
+  target.replaceChildren();
+
+  const studio = document.createElement("div");
+  studio.id = "suPollStudio";
+
+  studio.innerHTML = `
+    <div class="su-test-controls">
+      <label class="field">აირჩიე Poll</label>
+      <select class="su-test-select"
+              id="suPollTestSelect"></select>
+
+      <div id="suPollPercentEditor"></div>
+
+      <p class="smallprint">
+        პროცენტების შესაცვლელად ჩაწერე სასურველი
+        რიცხვები. სისტემა მათ ჯამს 100%-ზე
+        ავტომატურად გადაანგარიშებს.
+        ეს მონაცემები რეალურ ხმებში არ ინახება.
+      </p>
+    </div>
+
+    <div class="su-test-screen" id="suPollTestScreen">
+      <canvas id="suPollTestCanvas"></canvas>
+
+      <div class="su-screen-top">
+        <span class="su-screen-brand su-test-protect">
+          SPORTUNI WELCOME 2026
+        </span>
+        <span class="su-screen-pill su-test-protect">
+          LIVE POLL
+        </span>
+      </div>
+
+      <h2 class="su-screen-question su-test-protect"
+          id="suPollTestQuestion"></h2>
+
+      <div class="su-screen-results"
+           id="suPollTestResults"></div>
+
+      <div class="su-screen-footer su-test-protect">
+        SPORTUNI • ჩემპიონები სწავლობენ აქ
+      </div>
+    </div>
+  `;
+
+  target.appendChild(studio);
+
+  const select = studio.querySelector("#suPollTestSelect");
+  const editor = studio.querySelector("#suPollPercentEditor");
+  const screen = studio.querySelector("#suPollTestScreen");
+  const title = studio.querySelector("#suPollTestQuestion");
+  const results = studio.querySelector("#suPollTestResults");
+  const canvas = studio.querySelector("#suPollTestCanvas");
+  const ctx = canvas.getContext("2d");
+
+  if (!ctx) return;
+
+  let polls = [sample];
+  let current = sample;
+  let weights = [42, 34, 24];
+  let particles = [];
+  let protectedAreas = [];
+  let width = 1;
+  let height = 1;
+  let lastTime = 0;
+
+  const TOTAL_BUBBLES = 190;
+  const rand = (a, b) =>
+    a + Math.random() * (b - a);
+
+  function normalized() {
+    const total = weights.reduce((s, n) => s + n, 0);
+
+    if (!total) {
+      return weights.map(() => 100 / weights.length);
+    }
+
+    return weights.map(n => n / total * 100);
+  }
+
+  function displayPercentages() {
+    const shares = normalized();
+
+    const floors = shares.map(Math.floor);
+    let remaining = 100 -
+      floors.reduce((sum, v) => sum + v, 0);
+
+    const order = shares
+      .map((value, i) => ({
+        i,
+        fraction: value - floors[i]
+      }))
+      .sort((a, b) => b.fraction - a.fraction);
+
+    for (let i = 0; i < remaining; i++) {
+      floors[order[i].i]++;
+    }
+
+    return floors;
+  }
+
+  function renderResults() {
+    results.replaceChildren();
+    const percentages = displayPercentages();
+
+    current.options.forEach((option, i) => {
+      const [hex, heart] =
+        palette[option.color_key] || palette.yellow;
+
+      const item = document.createElement("div");
+      item.className = "su-screen-result";
+
+      const percent = document.createElement("div");
+      percent.className =
+        "su-screen-percent su-test-protect";
+      percent.style.color = hex;
+      percent.textContent = percentages[i] + "%";
+
+      const emoji = document.createElement("div");
+      emoji.className =
+        "su-screen-heart su-test-protect";
+      emoji.textContent = heart;
+
+      const name = document.createElement("div");
+      name.className =
+        "su-screen-name su-test-protect";
+      name.textContent = option.text;
+
+      item.append(percent, emoji, name);
+      results.appendChild(item);
+    });
+
+    updateProtectedAreas();
+  }
+
+  function renderEditor() {
+    editor.replaceChildren();
+
+    current.options.forEach((option, index) => {
+      const row = document.createElement("div");
+      row.className = "su-test-row";
+
+      const emoji = document.createElement("span");
+      emoji.textContent =
+        (palette[option.color_key] || palette.yellow)[1];
+
+      const name = document.createElement("label");
+      name.textContent = option.text;
+
+      const input = document.createElement("input");
+      input.type = "number";
+      input.min = "0";
+      input.max = "100";
+      input.step = "1";
+      input.value = weights[index];
+
+      input.addEventListener("input", () => {
+        weights[index] = Math.max(
+          0,
+          Number(input.value) || 0
+        );
+
+        renderResults();
+      });
+
+      row.append(emoji, name, input);
+      editor.appendChild(row);
+    });
+  }
+
+  function choosePoll(index) {
+    current = polls[index] || sample;
+
+    title.textContent = current.question_text;
+
+    weights = current.options.map((_, i) =>
+      i < 3 ? [42, 34, 24][i] : 10
+    );
+
+    renderEditor();
+    renderResults();
+    resizeCanvas();
+  }
+
+  function updateProtectedAreas() {
+    const base = screen.getBoundingClientRect();
+
+    protectedAreas = [
+      ...studio.querySelectorAll(".su-test-protect")
+    ].map(element => {
+      const r = element.getBoundingClientRect();
+
+      return {
+        left: r.left - base.left - 6,
+        right: r.right - base.left + 6,
+        top: r.top - base.top - 6,
+        bottom: r.bottom - base.top + 6
+      };
+    });
+  }
+
+  function isProtected(x, y, radius) {
+    return protectedAreas.some(r =>
+      x + radius > r.left &&
+      x - radius < r.right &&
+      y + radius > r.top &&
+      y - radius < r.bottom
+    );
+  }
+
+  function chooseColor() {
+    const shares = normalized();
+    const random = Math.random() * 100;
+
+    let accumulated = 0;
+
+    for (let i = 0; i < shares.length; i++) {
+      accumulated += shares[i];
+
+      if (random <= accumulated) {
+        return (palette[current.options[i].color_key]
+          || palette.yellow)[0];
+      }
+    }
+
+    return palette.yellow[0];
+  }
+
+  function newParticle() {
+    const angle = rand(0, Math.PI * 2);
+
+    return {
+      x: rand(0, width),
+      y: rand(0, height),
+      radius: rand(width * .006, width * .016),
+      vx: Math.cos(angle) * rand(25, 49),
+      vy: Math.sin(angle) * rand(25, 49),
+      color: chooseColor(),
+      opacity: rand(.52, .82)
+    };
+  }
+
+  function resizeCanvas() {
+    const rect = screen.getBoundingClientRect();
+
+    width = rect.width;
+    height = rect.height;
+
+    const ratio = Math.min(
+      window.devicePixelRatio || 1,
+      2
+    );
+
+    canvas.width = Math.round(width * ratio);
+    canvas.height = Math.round(height * ratio);
+
+    ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+
+    updateProtectedAreas();
+
+    particles = Array.from(
+      {length: TOTAL_BUBBLES},
+      newParticle
+    );
+  }
+
+  function animate(timestamp) {
+    const delta = lastTime
+      ? Math.min((timestamp - lastTime) / 1000, .04)
+      : 0;
+
+    lastTime = timestamp;
+    ctx.clearRect(0, 0, width, height);
+
+    particles.forEach(p => {
+      const nx = p.x + p.vx * delta;
+      const ny = p.y + p.vy * delta;
+
+      if (isProtected(nx, ny, p.radius)) {
+        if (!isProtected(nx, p.y, p.radius)) {
+          p.vy *= -1;
+          p.x = nx;
+        } else if (!isProtected(p.x, ny, p.radius)) {
+          p.vx *= -1;
+          p.y = ny;
+        } else {
+          p.vx *= -1;
+          p.vy *= -1;
+        }
+      } else {
+        p.x = nx;
+        p.y = ny;
+      }
+
+      if (p.x > width + p.radius) {
+        p.x = -p.radius;
+        p.color = chooseColor();
+      }
+
+      if (p.x < -p.radius) {
+        p.x = width + p.radius;
+        p.color = chooseColor();
+      }
+
+      if (p.y > height + p.radius) {
+        p.y = -p.radius;
+        p.color = chooseColor();
+      }
+
+      if (p.y < -p.radius) {
+        p.y = height + p.radius;
+        p.color = chooseColor();
+      }
+
+      if (isProtected(p.x, p.y, p.radius)) return;
+
+      ctx.globalAlpha = p.opacity;
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+      ctx.fill();
+    });
+
+    ctx.globalAlpha = 1;
+    requestAnimationFrame(animate);
+  }
+
+  async function loadPolls() {
+    select.replaceChildren();
+
+    let loaded = [];
+
+    try {
+      const response = await fetch("/api/admin/polls", {
+        credentials: "same-origin",
+        cache: "no-store"
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        loaded = result.polls || [];
+      }
+    } catch (error) {
+      console.warn("Poll test list:", error);
+    }
+
+    polls = [sample, ...loaded];
+
+    polls.forEach((poll, index) => {
+      const option = document.createElement("option");
+
+      option.value = String(index);
+      option.textContent = index === 0
+        ? "სადემონსტრაციო Poll — სამი ფაკულტეტი"
+        : poll.question_text;
+
+      select.appendChild(option);
+    });
+
+    choosePoll(0);
+  }
+
+  select.addEventListener("change", () => {
+    choosePoll(Number(select.value));
+  });
+
+  loadPolls();
+
+  requestAnimationFrame(animate);
+
+  if (typeof ResizeObserver !== "undefined") {
+    new ResizeObserver(() => {
+      resizeCanvas();
+    }).observe(screen);
+  } else {
+    window.addEventListener("resize", resizeCanvas);
+  }
+})();
+</script>
+<!-- END POLL TEST STUDIO -->
+
 </body>
 </html>
