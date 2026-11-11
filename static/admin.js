@@ -689,4 +689,354 @@ refresh().then(() => {
 
 setInterval(refresh, 1600);
 
+/* =========================================================
+   SPORTUNI WELCOME 2026
+   PREPARED QUESTIONS
+   Existing admin functionality remains unchanged.
+   ========================================================= */
+
+let preparedItems = [];
+let preparedActionBusy = false;
+let preparedLoading = false;
+
+function preparedStatus(item) {
+  return item.last_published_at
+    ? 'უკვე გამოყენებულია'
+    : 'მზადაა გამოსაქვეყნებლად';
+}
+
+function preparedRender() {
+  const manager = $('preparedManagerList');
+  const quick = $('preparedQuickList');
+
+  if (!manager || !quick) return;
+
+  $('preparedManagerCount').textContent =
+    preparedItems.length + ' კითხვა';
+
+  $('preparedQuickCount').textContent =
+    preparedItems.length + ' კითხვა';
+
+  if (!preparedItems.length) {
+    manager.innerHTML =
+      '<div class="empty">ჯერ არ გაქვს შენახული კითხვები.</div>';
+
+    quick.innerHTML =
+      '<div class="empty">კითხვები დაამატე „კითხვების“ გვერდიდან.</div>';
+
+    return;
+  }
+
+  manager.innerHTML = preparedItems.map((item, index) => `
+    <div class="prepared-entry">
+      <div class="prepared-entry-main">
+        <p>
+          ${index + 1}. ${esc(item.question_text)}
+        </p>
+        <small>${preparedStatus(item)}</small>
+      </div>
+
+      <div class="prepared-entry-actions">
+        <button
+          type="button"
+          class="mini"
+          data-prepared-up="${esc(item.id)}"
+          ${index === 0 || preparedActionBusy ? 'disabled' : ''}
+          title="ზემოთ გადატანა"
+        >↑</button>
+
+        <button
+          type="button"
+          class="mini"
+          data-prepared-down="${esc(item.id)}"
+          ${index === preparedItems.length - 1 || preparedActionBusy ? 'disabled' : ''}
+          title="ქვემოთ გადატანა"
+        >↓</button>
+
+        <button
+          type="button"
+          class="mini"
+          data-prepared-edit="${esc(item.id)}"
+          ${preparedActionBusy ? 'disabled' : ''}
+        >✎ შეცვლა</button>
+
+        <button
+          type="button"
+          class="mini no"
+          data-prepared-delete="${esc(item.id)}"
+          ${preparedActionBusy ? 'disabled' : ''}
+        >წაშლა</button>
+      </div>
+    </div>
+  `).join('');
+
+  quick.innerHTML = preparedItems.map((item, index) => `
+    <div class="prepared-entry">
+      <div class="prepared-entry-main">
+        <p>
+          ${index + 1}. ${esc(item.question_text)}
+        </p>
+        <small>
+          ${item.last_published_at
+            ? '✓ უკვე გამოყენებულია · ხელახლა გაშვება შესაძლებელია'
+            : '● მზადაა გამოსაქვეყნებლად'}
+        </small>
+      </div>
+
+      <div class="prepared-entry-actions">
+        <button
+          type="button"
+          class="primary"
+          data-prepared-publish="${esc(item.id)}"
+          ${preparedActionBusy ? 'disabled' : ''}
+        >გაშვება ↗</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function preparedLoad() {
+  if (preparedLoading || preparedActionBusy) return;
+
+  preparedLoading = true;
+
+  try {
+    const result = await api(
+      '/api/admin/prepared-questions'
+    );
+
+    preparedItems = result.questions || [];
+    preparedRender();
+
+  } catch (e) {
+    console.error('Prepared questions:', e);
+
+    if (!preparedItems.length) {
+      $('preparedManagerList').innerHTML =
+        '<div class="empty">კითხვები ვერ ჩაიტვირთა.</div>';
+
+      $('preparedQuickList').innerHTML =
+        '<div class="empty">კითხვები ვერ ჩაიტვირთა.</div>';
+    }
+
+  } finally {
+    preparedLoading = false;
+  }
+}
+
+async function preparedAction(fn) {
+  if (preparedActionBusy) return;
+
+  preparedActionBusy = true;
+  preparedRender();
+
+  try {
+    await fn();
+  } catch (e) {
+    toast(e.message);
+  } finally {
+    preparedActionBusy = false;
+    await preparedLoad();
+    preparedRender();
+  }
+}
+
+function preparedFind(id) {
+  return preparedItems.find(item => item.id === id);
+}
+
+/* PREPARED QUESTION INPUT */
+
+$('preparedQuestionInput').addEventListener('input', () => {
+  $('preparedQuestionCount').textContent =
+    $('preparedQuestionInput').value.length + ' / 200';
+});
+
+/* SAVE NEW QUESTION */
+
+$('savePreparedQuestion').onclick = async () => {
+  const input = $('preparedQuestionInput');
+  const text = input.value.trim();
+
+  if (!text || text.length > 200) {
+    return toast('კითხვა უნდა შეიცავდეს 1–200 სიმბოლოს');
+  }
+
+  await preparedAction(async () => {
+    await api(
+      '/api/admin/prepared-questions',
+      'POST',
+      {text}
+    );
+
+    input.value = '';
+    $('preparedQuestionCount').textContent = '0 / 200';
+
+    toast('კითხვა შენახულია და მზადაა გასაშვებად');
+  });
+};
+
+/* REORDER, EDIT AND DELETE */
+
+$('preparedManagerList').addEventListener('click', async event => {
+  const button = event.target.closest('button[data-prepared-up], button[data-prepared-down], button[data-prepared-edit], button[data-prepared-delete]');
+
+  if (!button || preparedActionBusy) return;
+
+  const id = button.dataset.preparedUp
+    || button.dataset.preparedDown
+    || button.dataset.preparedEdit
+    || button.dataset.preparedDelete;
+
+  const item = preparedFind(id);
+  if (!item) return toast('კითხვა ვერ მოიძებნა');
+
+  // Move question up or down.
+  if (
+    button.hasAttribute('data-prepared-up')
+    || button.hasAttribute('data-prepared-down')
+  ) {
+    const index = preparedItems.findIndex(q => q.id === id);
+    const direction = button.hasAttribute('data-prepared-up')
+      ? -1 : 1;
+
+    const nextIndex = index + direction;
+
+    if (
+      nextIndex < 0 ||
+      nextIndex >= preparedItems.length
+    ) return;
+
+    const reordered = [...preparedItems];
+
+    [reordered[index], reordered[nextIndex]] =
+      [reordered[nextIndex], reordered[index]];
+
+    await preparedAction(async () => {
+      await api(
+        '/api/admin/prepared-questions/reorder',
+        'POST',
+        {question_ids: reordered.map(q => q.id)}
+      );
+
+      toast('კითხვების თანმიმდევრობა შენახულია');
+    });
+
+    return;
+  }
+
+  // Edit prepared question.
+  if (button.hasAttribute('data-prepared-edit')) {
+    const edited = window.prompt(
+      'შეცვალე მომზადებული კითხვა:',
+      item.question_text
+    );
+
+    if (edited === null) return;
+
+    const text = edited.trim();
+
+    if (!text || text.length > 200) {
+      return toast('კითხვა უნდა შეიცავდეს 1–200 სიმბოლოს');
+    }
+
+    if (text === item.question_text) return;
+
+    await preparedAction(async () => {
+      await api(
+        '/api/admin/prepared-questions/' +
+          encodeURIComponent(id),
+        'PATCH',
+        {text}
+      );
+
+      toast('კითხვა განახლებულია');
+    });
+
+    return;
+  }
+
+  // Delete only the prepared draft.
+  if (button.hasAttribute('data-prepared-delete')) {
+    const confirmed = await confirmAction(
+      'მომზადებული კითხვის წაშლა',
+      'წაიშლება მხოლოდ წინასწარ შენახული კითხვა: „' +
+      item.question_text +
+      '“. თუ ის უკვე გამოქვეყნებული იყო, გამოქვეყნებული კითხვა და სტუდენტების პასუხები შენარჩუნდება. ნამდვილად წავშალოთ?'
+    );
+
+    if (!confirmed) return;
+
+    await preparedAction(async () => {
+      await api(
+        '/api/admin/prepared-questions/' +
+          encodeURIComponent(id),
+        'DELETE'
+      );
+
+      toast('მომზადებული კითხვა წაშლილია');
+    });
+  }
+});
+
+/* QUICK LAUNCH ON THE MAIN CONTROL PAGE */
+
+$('preparedQuickList').addEventListener('click', async event => {
+  const button = event.target.closest(
+    '[data-prepared-publish]'
+  );
+
+  if (!button || preparedActionBusy) return;
+
+  const id = button.dataset.preparedPublish;
+  const item = preparedFind(id);
+
+  if (!item) {
+    return toast('კითხვა ვერ მოიძებნა');
+  }
+
+  const alreadyUsed = Boolean(item.last_published_at);
+
+  const message =
+    'გავუშვათ კითხვა: „' +
+    item.question_text +
+    '“? დადასტურების შემდეგ სტუდენტებთან გამოჩნდება ახალი კითხვა, პროექტორი გადავა QR რეჟიმზე და პასუხების მიღება ჩვეულებრივ გაგრძელდება.' +
+    (alreadyUsed
+      ? ' ეს კითხვა უკვე გამოყენებულია; ხელახლა გაშვება შექმნის ახალ აქტიურ კითხვას.'
+      : '');
+
+  const confirmed = await confirmAction(
+    'მომზადებული კითხვის გაშვება',
+    message
+  );
+
+  if (!confirmed) return;
+
+  await preparedAction(async () => {
+    const result = await api(
+      '/api/admin/prepared-questions/' +
+        encodeURIComponent(id) +
+        '/publish',
+      'POST',
+      {}
+    );
+
+    if (result.ok !== true) {
+      throw Error('კითხვის გამოქვეყნება ვერ დადასტურდა');
+    }
+
+    await refresh();
+
+    toast('კითხვა გამოქვეყნებულია · QR ეკრანი ჩართულია');
+  });
+});
+
+/* INITIAL LOAD AND PERIODIC SYNCHRONIZATION */
+
+preparedLoad();
+
+// Keep lists synchronized with Supabase.
+// Editing or saving is not interrupted by refresh.
+setInterval(preparedLoad, 8000);
+
 })();
