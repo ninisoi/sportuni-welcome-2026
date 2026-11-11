@@ -160,6 +160,21 @@ def student_submit():
     try: uuid.UUID(str(qid));uuid.UUID(str(sid))
     except (ValueError,TypeError,AttributeError): raise ApiError('კითხვა ან გაგზავნის მოთხოვნა არასწორია')
     d=device(); s,q=current()
+    
+    # Poll questions accept selections only, not text answers.
+    if q and q.get('question_type') == 'poll':
+        raise ApiError(
+            'ამ კითხვაზე პასუხი უნდა აირჩიო',
+            409
+        )
+
+    # Prevent text submissions after the student session closes.
+    if s and s.get('student_session_closed', False):
+        raise ApiError(
+            'ღონისძიება დასრულებულია',
+            409
+        )
+
     if not q or qid!=q['id'] or not s['intake_enabled']: raise ApiError('კითხვა შეიცვალა ან პასუხების მიღება შეჩერებულია',409)
     status='pending'; source='awaiting_review'; reason=None
     if s['moderation_mode']=='direct': status,source='approved','automatic'
@@ -720,6 +735,214 @@ def poll_publish_now_api():
 
 # ============================================================
 # END LIVE POLL API
+# ============================================================
+
+# ============================================================
+# SPORTUNI WELCOME 2026
+# STEP 13 — STUDENT POLL API
+#
+# GET  /api/student/poll
+# POST /api/student/poll/vote
+#
+# Existing text-question endpoints remain unchanged.
+# ============================================================
+
+@app.route('/api/student/poll', methods=['GET'])
+def student_poll_status():
+
+    s, q = current()
+    d = device()
+
+    if not s:
+        raise ApiError(
+            'ღონისძიების პარამეტრები ვერ მოიძებნა',
+            503
+        )
+
+    # Event has ended: don't expose the question.
+    if s.get('student_session_closed', False):
+        resp = jsonify(
+            ok=True,
+            session_closed=True,
+            question=None,
+            question_type=None,
+            options=[],
+            intake=False,
+            answered=False
+        )
+        return setdevice(resp, d)
+
+    is_poll = bool(
+        q and q.get('question_type') == 'poll'
+    )
+
+    options = []
+    answered = False
+
+    if is_poll:
+
+        option_rows = db(
+            'poll_options',
+            params={
+                'question_id': 'eq.' + q['id'],
+                'select': (
+                    'id,option_text,color_key,sort_order'
+                ),
+                'order': 'sort_order.asc',
+                'limit': '12'
+            }
+        ) or []
+
+        # Fetch approved colors and matching hearts.
+        palette_rows = db(
+            'poll_palette',
+            params={
+                'select': 'color_key,hex_color,heart',
+                'limit': '12'
+            }
+        ) or []
+
+        palette = {
+            item['color_key']: item
+            for item in palette_rows
+        }
+
+        for item in option_rows:
+            color = palette.get(
+                item['color_key'], {}
+            )
+
+            options.append({
+                'id': item['id'],
+                'text': item['option_text'],
+                'color_key': item['color_key'],
+                'color': color.get('hex_color', '#FDCB4E'),
+                'heart': color.get('heart', '💛')
+            })
+
+        # Does this device already have a vote?
+        previous_vote = one(
+            'poll_votes',
+            question_id=q['id'],
+            voter_hash=d_hash(d)
+        )
+
+        answered = bool(previous_vote)
+
+    resp = jsonify(
+        ok=True,
+        session_closed=False,
+        question={
+            'id': q['id'],
+            'text': q['text']
+        } if q else None,
+        question_type=(
+            q.get('question_type', 'text')
+            if q else None
+        ),
+        options=options,
+        intake=bool(
+            s.get('intake_enabled') and q
+        ),
+        answered=answered
+    )
+
+    return setdevice(resp, d)
+
+
+@app.route('/api/student/poll/vote', methods=['POST'])
+def student_poll_vote():
+
+    data = json_input()
+
+    qid = data.get('qid')
+    option_id = data.get('option_id')
+
+    # Validate IDs before sending anything to Supabase.
+    try:
+        qid = str(uuid.UUID(str(qid)))
+        option_id = str(uuid.UUID(str(option_id)))
+    except (ValueError, TypeError, AttributeError):
+        raise ApiError(
+            'კითხვა ან პასუხის ვარიანტი არასწორია'
+        )
+
+    # Use the existing device identity mechanism.
+    d = device()
+
+    # The SQL function checks the active question,
+    # event closure, intake, option ownership and
+    # duplicate voting atomically.
+    result = db(
+        'rpc/submit_sportuni_poll_vote',
+        method='POST',
+        body={
+            'p_question': qid,
+            'p_option': option_id,
+            'p_hash': d_hash(d)
+        }
+    )
+
+    if not isinstance(result, dict):
+        raise ApiError(
+            'ხმის მიცემის შედეგი ვერ დადასტურდა',
+            503
+        )
+
+    reason = result.get('reason')
+
+    if reason == 'session_closed':
+        resp = jsonify(
+            ok=False,
+            reason='session_closed',
+            detail='ღონისძიება დასრულებულია'
+        )
+        return setdevice(resp, d), 409
+
+    if reason == 'intake_closed':
+        resp = jsonify(
+            ok=False,
+            reason='intake_closed',
+            detail='პასუხების მიღება შეჩერებულია'
+        )
+        return setdevice(resp, d), 409
+
+    if reason == 'question_changed':
+        resp = jsonify(
+            ok=False,
+            reason='question_changed',
+            detail='კითხვა შეიცვალა. განაახლე გვერდი.'
+        )
+        return setdevice(resp, d), 409
+
+    if reason in ('not_a_poll', 'invalid_option'):
+        resp = jsonify(
+            ok=False,
+            reason=reason,
+            detail='არჩეული პასუხი აღარ არის აქტიური'
+        )
+        return setdevice(resp, d), 400
+
+    if result.get('ok') is not True:
+        raise ApiError(
+            'ხმის მიცემა ვერ შესრულდა',
+            409
+        )
+
+    # An already-voted device must not create
+    # another vote or change its previous choice.
+    resp = jsonify(
+        ok=True,
+        already_voted=bool(
+            result.get('already_voted', False)
+        )
+    )
+
+    return setdevice(resp, d)
+
+
+# ============================================================
+# END STUDENT POLL API
 # ============================================================
 
 if __name__=="__main__":
