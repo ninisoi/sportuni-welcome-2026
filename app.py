@@ -250,6 +250,94 @@ def export():
         w.writerow([q.get('question_number',''),q.get('text',''),txt,a['status'],a['created_at']])
     return Response(stream.getvalue(),mimetype='text/csv; charset=utf-8',headers={'Content-Disposition':'attachment; filename=SPORTUNI_WELCOME_responses.csv'})
 
+
+# NEW: Export answers of one selected question
+@app.route('/api/admin/questions/<qid>/export.csv')
+def export_question(qid):
+    staff('admin')
+    try:
+        uuid.UUID(qid)
+    except (ValueError, AttributeError):
+        raise ApiError('კითხვის ID არასწორია')
+
+    q = one('questions', id=qid)
+    if not q:
+        raise ApiError('კითხვა ვერ მოიძებნა', 404)
+
+    rows = db('answers', params={
+        'question_id': 'eq.' + qid,
+        'select': 'answer_text,status,created_at',
+        'order': 'created_at.asc',
+        'limit': '10000'
+    }) or []
+
+    stream = io.StringIO()
+    stream.write('\ufeff')
+    writer = csv.writer(stream)
+    writer.writerow(['კითხვა №', 'კითხვა', 'პასუხი', 'სტატუსი', 'დრო'])
+
+    for answer in rows:
+        value = answer['answer_text']
+
+        # Prevent spreadsheet formula execution
+        if value and value.lstrip()[:1] in ('=', '+', '-', '@'):
+            value = "'" + value
+
+        writer.writerow([
+            q['question_number'],
+            q['text'],
+            value,
+            answer['status'],
+            answer['created_at']
+        ])
+
+    filename = f"SPORTUNI_question_{q['question_number']}_answers.csv"
+
+    return Response(
+        stream.getvalue(),
+        mimetype='text/csv; charset=utf-8',
+        headers={
+            'Content-Disposition':
+                f'attachment; filename="{filename}"'
+        }
+    )
+
+
+# NEW: Delete one or several selected questions
+@app.route('/api/admin/questions/delete', methods=['POST'])
+def delete_questions():
+    staff('admin')
+    payload = json_input()
+    ids = payload.get('question_ids')
+
+    if not isinstance(ids, list) or not ids or len(ids) > 100:
+        raise ApiError('აირჩიე 1-დან 100-მდე კითხვა')
+
+    normalized = []
+
+    for value in ids:
+        if not isinstance(value, str):
+            raise ApiError('კითხვის ID არასწორია')
+        try:
+            normalized.append(str(uuid.UUID(value)))
+        except ValueError:
+            raise ApiError('კითხვის ID არასწორია')
+
+    normalized = list(dict.fromkeys(normalized))
+
+    s, _ = current()
+    if s and s.get('active_question_id') in normalized:
+        raise ApiError('აქტიური კითხვის წაშლა შეუძლებელია', 409)
+
+    result = db(
+        'rpc/delete_sportuni_questions',
+        method='POST',
+        body={'p_question_ids': normalized}
+    )
+
+    return jsonify(result or {'ok': True})
+
+
 @app.route('/api/admin/clear-answers',methods=['POST'])
 def clear_answers():
     staff('admin')
