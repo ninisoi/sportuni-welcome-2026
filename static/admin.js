@@ -7,6 +7,9 @@ let state = null;
 let page = 'live';
 let modalResolve = null;
 let durationDirty = false;
+let questionSelectionMode = false;
+let questionDeleteBusy = false;
+const selectedQuestionIds = new Set();
 
 const esc = x => String(x ?? '').replace(/[&<>"']/g, c => ({
   '&': '&amp;',
@@ -216,17 +219,7 @@ function render() {
     ? pending.map(row).join('')
     : '<div class="empty">✓ ამ მომენტში არცერთი პასუხი არ საჭიროებს შენს ჩარევას.</div>';
 
-  $('questionHistory').innerHTML = state.questions.map(x => `
-    <div class="item">
-      <div>
-        <p>${esc(x.text)}</p>
-        <small>კითხვა №${x.id}</small>
-      </div>
-      <span class="badge ${x.id === state.qid ? 'green' : ''}">
-        ${x.id === state.qid ? 'აქტიური' : 'წინა კითხვა'}
-      </span>
-    </div>
-  `).join('');
+  renderQuestionHistory();
 
   const filter = $('statusFilter').value;
   const term = $('responseSearch').value.trim().toLowerCase();
@@ -270,6 +263,116 @@ function render() {
     `).join('')
     : '<tr><td colspan="5">პასუხები არ მოიძებნა</td></tr>';
 }
+
+// კითხვების ინდივიდუალური და ჯგუფური მართვა
+function renderQuestionHistory() {
+  if (!state) return;
+  const questions = state.questions || [];
+  const available = new Set(questions.map(q => q.uuid));
+  for (const id of selectedQuestionIds) {
+    if (!available.has(id)) selectedQuestionIds.delete(id);
+  }
+
+  $('bulkSelectQuestions').textContent = questionSelectionMode
+    ? '✕ არჩევის რეჟიმის გამორთვა'
+    : '☑ რამდენიმე კითხვის არჩევა';
+  $('bulkQuestionToolbar').style.display = questionSelectionMode ? 'flex' : 'none';
+  $('selectedQuestionsCount').textContent = selectedQuestionIds.size + ' კითხვა მონიშნულია';
+  $('deleteSelectedQuestions').disabled = questionDeleteBusy || selectedQuestionIds.size === 0;
+
+  $('questionHistory').innerHTML = questions.length
+    ? questions.map(q => {
+      const active = q.id === state.qid;
+      return `<div class="item question-history-item">
+        <div class="question-history-main">
+          ${questionSelectionMode ? `<input type="checkbox" class="question-select-checkbox"
+            data-question-check="${esc(q.uuid)}" aria-label="კითხვა №${q.id}-ის მონიშვნა"
+            ${selectedQuestionIds.has(q.uuid) ? 'checked' : ''} ${active ? 'disabled' : ''}>` : ''}
+          <div><p>${esc(q.text)}</p><small>კითხვა №${q.id}</small></div>
+        </div>
+        <div class="question-history-actions">
+          ${active ? '<span class="badge green">აქტიური · წაშლა აკრძალულია</span>' : ''}
+          <button type="button" class="mini" data-question-export="${esc(q.uuid)}">↓ პასუხების შენახვა</button>
+          <button type="button" class="mini no" data-question-delete="${esc(q.uuid)}"
+            ${active || questionDeleteBusy ? 'disabled' : ''}>🗑 წაშლა</button>
+        </div>
+      </div>`;
+    }).join('')
+    : '<div class="empty">კითხვები ჯერ არ არის გამოქვეყნებული.</div>';
+}
+
+$('bulkSelectQuestions').onclick = () => {
+  if (questionDeleteBusy) return;
+  questionSelectionMode = !questionSelectionMode;
+  selectedQuestionIds.clear();
+  renderQuestionHistory();
+};
+
+$('cancelQuestionSelection').onclick = () => {
+  if (questionDeleteBusy) return;
+  questionSelectionMode = false;
+  selectedQuestionIds.clear();
+  renderQuestionHistory();
+};
+
+$('questionHistory').addEventListener('change', e => {
+  const checkbox = e.target.closest('[data-question-check]');
+  if (!checkbox || !state || checkbox.disabled) return;
+  const id = checkbox.dataset.questionCheck;
+  if (checkbox.checked) selectedQuestionIds.add(id);
+  else selectedQuestionIds.delete(id);
+  $('selectedQuestionsCount').textContent = selectedQuestionIds.size + ' კითხვა მონიშნულია';
+  $('deleteSelectedQuestions').disabled = questionDeleteBusy || selectedQuestionIds.size === 0;
+});
+
+async function deleteQuestionIds(ids) {
+  if (!state || questionDeleteBusy) return;
+  const unique = [...new Set(ids)];
+  if (!unique.length || unique.length > 100) return toast('აირჩიე 1-დან 100-მდე კითხვა');
+  const targets = state.questions.filter(q => unique.includes(q.uuid));
+  if (targets.length !== unique.length) return toast('კითხვა ვერ მოიძებნა. განაახლე გვერდი.');
+  if (targets.some(q => q.id === state.qid)) return toast('აქტიური კითხვის წაშლა აკრძალულია');
+
+  const message = targets.length === 1
+    ? `ნამდვილად წავშალოთ კითხვა №${targets[0].id}: „${targets[0].text}“? ამ კითხვის ყველა პასუხი და მოდერაციის ისტორია სამუდამოდ წაიშლება. საჭიროების შემთხვევაში ჯერ ჩამოტვირთე CSV.`
+    : `ნამდვილად წავშალოთ ${targets.length} მონიშნული კითხვა? მათი ყველა პასუხი და მოდერაციის ისტორია სამუდამოდ წაიშლება. საჭიროების შემთხვევაში ჯერ ჩამოტვირთე CSV.`;
+  if (!await confirmAction('კითხვის წაშლის დადასტურება', message)) return;
+
+  questionDeleteBusy = true;
+  renderQuestionHistory();
+  try {
+    const result = await api('/api/admin/questions/delete', 'POST', {question_ids: unique});
+    if (result.ok !== true) throw Error('წაშლის შესრულება ვერ დადასტურდა');
+    questionSelectionMode = false;
+    selectedQuestionIds.clear();
+    await refresh();
+    toast(`წაიშალა ${result.deleted_questions ?? targets.length} კითხვა`);
+  } catch (e) {
+    toast(e.message);
+  } finally {
+    questionDeleteBusy = false;
+    renderQuestionHistory();
+  }
+}
+
+$('questionHistory').addEventListener('click', e => {
+  const exportButton = e.target.closest('[data-question-export]');
+  if (exportButton) {
+    const id = exportButton.dataset.questionExport;
+    if (state?.questions.some(q => q.uuid === id)) {
+      location.href = '/api/admin/questions/' + encodeURIComponent(id) + '/export.csv';
+    }
+    return;
+  }
+  const deleteButton = e.target.closest('[data-question-delete]');
+  if (deleteButton && !deleteButton.disabled) {
+    deleteQuestionIds([deleteButton.dataset.questionDelete]);
+  }
+});
+
+$('deleteSelectedQuestions').onclick = () => {
+  if (selectedQuestionIds.size) deleteQuestionIds([...selectedQuestionIds]);
+};
 
 // მოდერაციის რეჟიმი
 document.querySelectorAll('input[name=moderationMode]').forEach(r => {
