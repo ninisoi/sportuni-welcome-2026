@@ -1,23 +1,24 @@
 
-/* =====================================================
+/* ===================================================
    SPORTUNI WELCOME 2026
-   ADMIN UI IMPROVEMENTS
+   ADMIN UI FIXES — COMPLETE VERSION
 
-   1. Move moderation queue above session control
-   2. Select all deletable questions
-   3. Restore active admin page after refresh
+   1. Moderation queue above session control
+   2. Select all questions, safely
+   3. Preserve admin page after refresh
 
-   Uses existing admin functionality.
-   Does not change server APIs.
-===================================================== */
+   No backend or database changes.
+=================================================== */
 
 (() => {
   "use strict";
 
-  const STORAGE_KEY =
-    "sportuni_admin_active_page_v1";
+  const $ = id => document.getElementById(id);
 
-  const PAGE_IDS = new Set([
+  const STORAGE_KEY =
+    "sportuni_admin_active_page_v2";
+
+  const VALID_PAGES = new Set([
     "live",
     "questions",
     "poll",
@@ -26,294 +27,295 @@
     "team"
   ]);
 
-  /* ==========================================
-     1. MODERATION QUEUE POSITION
-  ========================================== */
+  /* =============================================
+     1. DASHBOARD ORDER
+  ============================================= */
 
   function arrangeDashboard() {
-    const livePage =
-      document.getElementById("page-live");
+    const live = $("page-live");
+    const review = $("reviewPanel");
+    const session = $("suSessionCard");
 
-    const review =
-      document.getElementById("reviewPanel");
-
-    const session =
-      document.getElementById("suSessionCard");
-
-    if (!livePage || !review || !session) {
+    if (!live || !review || !session) {
       return;
     }
 
-    // The moderation queue must be immediately
-    // ABOVE the student-session control.
-    // Move the original node, do not clone it.
-    session.before(review);
+    // Put moderation immediately above
+    // the student session management block.
+    if (
+      review.parentElement === live &&
+      session.parentElement === live &&
+      review.nextElementSibling !== session
+    ) {
+      live.insertBefore(review, session);
+    }
   }
 
-  /* ==========================================
+  /* =============================================
      2. SELECT ALL QUESTIONS
-  ========================================== */
+  ============================================= */
 
-  function setupSelectAll() {
-    const toolbar =
-      document.getElementById(
-        "bulkQuestionToolbar"
-      );
-
-    const history =
-      document.getElementById(
-        "questionHistory"
-      );
-
-    const count =
-      document.getElementById(
-        "selectedQuestionsCount"
-      );
-
-    const deleteButton =
-      document.getElementById(
-        "deleteSelectedQuestions"
-      );
+  function initializeSelectAll() {
+    const toolbar = $("bulkQuestionToolbar");
+    const history = $("questionHistory");
+    const counter = $("selectedQuestionsCount");
+    const deleteButton = $("deleteSelectedQuestions");
 
     if (
       !toolbar ||
       !history ||
-      !count ||
+      !counter ||
       !deleteButton
     ) {
       return;
     }
 
-    if (
-      document.getElementById(
-        "suSelectAllQuestions"
-      )
-    ) {
+    if ($("suSelectAllQuestions")) {
       return;
     }
 
-    const button =
-      document.createElement("button");
+    const style = document.createElement("style");
+
+    style.textContent = `
+      #suSelectAllQuestions {
+        background: #fff;
+        color: #093759;
+        border: 1px solid #cadbe7;
+        padding: 10px 13px;
+        border-radius: 10px;
+        font-size: 12px;
+        font-weight: 800;
+        min-height: 40px;
+      }
+
+      #suSelectAllQuestions:hover:not(:disabled) {
+        background: #edf5fa;
+      }
+
+      #suSelectAllQuestions:focus-visible {
+        outline: 3px solid #FDCB4E;
+        outline-offset: 2px;
+      }
+
+      #suSelectAllQuestions:disabled {
+        opacity: .45;
+      }
+    `;
+
+    document.head.appendChild(style);
+
+    const button = document.createElement("button");
 
     button.type = "button";
     button.id = "suSelectAllQuestions";
-    button.className = "mini";
     button.textContent = "☑ ყველას მონიშვნა";
 
-    button.style.cssText = [
-      "background:#ffffff",
-      "color:#093759",
-      "border:1px solid #cbdce8",
-      "border-radius:9px",
-      "padding:10px 13px",
-      "font-weight:900",
-      "min-height:39px"
-    ].join(";");
+    counter.after(button);
 
-    // Position next to the existing selection count.
-    count.after(button);
-
-    function checkboxes() {
+    function availableCheckboxes() {
       return Array.from(
         history.querySelectorAll(
-          'input[data-question-check]:not(:disabled)'
+          "input[data-question-check]:not(:disabled)"
         )
       );
     }
 
-    function updateLabel() {
-      const available = checkboxes();
+    function selectedCount() {
+      return availableCheckboxes()
+        .filter(item => item.checked)
+        .length;
+    }
 
-      if (!available.length) {
-        button.textContent =
-          "☑ ყველას მონიშვნა";
+    function updateButton() {
+      const items = availableCheckboxes();
 
+      if (!items.length) {
+        button.textContent = "☑ ყველას მონიშვნა";
         button.disabled = true;
         return;
       }
 
-      const allChecked =
-        available.every(
-          checkbox => checkbox.checked
-        );
+      const checked = items.filter(
+        item => item.checked
+      ).length;
 
-      const selected =
-        available.filter(
-          checkbox => checkbox.checked
-        ).length;
+      const max = Math.min(items.length, 100);
 
-      button.disabled = false;
+      button.disabled =
+        deleteButton.dataset.busy === "true";
 
-      if (allChecked) {
-        button.textContent =
-          "☐ მონიშვნის გაუქმება";
-
-      } else if (available.length > 100) {
-        button.textContent =
-          "☑ პირველი 100-ის მონიშვნა";
-
-      } else {
-        button.textContent =
-          "☑ ყველას მონიშვნა";
-      }
+      button.textContent =
+        checked === items.length
+          ? "☐ მონიშვნის გაუქმება"
+          : items.length > 100
+            ? "☑ 100-მდე კითხვის მონიშვნა"
+            : "☑ ყველას მონიშვნა";
 
       button.title =
-        selected + " / " +
-        available.length +
-        " მონიშნულია";
+        checked + " / " +
+        items.length +
+        " მონიშნულია. ერთ ჯერზე მაქსიმუმ " +
+        max + " კითხვა.";
     }
 
-    button.addEventListener(
-      "click",
-      () => {
-        const available = checkboxes();
+    button.addEventListener("click", () => {
+      const initial = availableCheckboxes();
 
-        if (!available.length) return;
+      if (!initial.length) return;
 
-        // The existing delete endpoint accepts
-        // a maximum of 100 questions per action.
-        // Never bypass this server-side limit.
-        const allChecked =
-          available.every(
-            checkbox => checkbox.checked
-          );
+      const allSelected = initial.every(
+        item => item.checked
+      );
 
-        const target = !allChecked;
+      const target = !allSelected;
 
-        available.forEach(
-          (checkbox, index) => {
-            const checked =
-              target && index < 100;
+      // admin.js rebuilds questionHistory
+      // after checkbox change. Therefore always
+      // find the CURRENT checkbox by stable ID.
 
-            if (checkbox.checked === checked) {
-              return;
-            }
+      const ids = initial
+        .map(item => item.dataset.questionCheck);
 
-            checkbox.checked = checked;
+      const limit = target
+        ? ids.slice(0, 100)
+        : ids;
 
-            // Notify existing admin.js.
-            checkbox.dispatchEvent(
-              new Event("change", {
-                bubbles: true
-              })
-            );
-          }
+      for (const id of limit) {
+        const current = availableCheckboxes().find(
+          item => item.dataset.questionCheck === id
         );
 
-        updateLabel();
+        if (!current) continue;
+
+        if (current.checked !== target) {
+          current.checked = target;
+
+          current.dispatchEvent(
+            new Event("change", {
+              bubbles: true
+            })
+          );
+        }
       }
-    );
+
+      updateButton();
+    });
 
     history.addEventListener(
       "change",
       event => {
         if (
           event.target.matches(
-            "[data-question-check]"
+            "input[data-question-check]"
           )
         ) {
-          updateLabel();
+          updateButton();
         }
       }
     );
 
-    // The history is rebuilt when the server
-    // refreshes or a question gets deleted.
-    const observer =
-      new MutationObserver(updateLabel);
+    // Also update after a question is added,
+    // deleted or the history is re-rendered.
+    let updating = false;
+
+    const observer = new MutationObserver(() => {
+      if (updating) return;
+
+      updating = true;
+
+      requestAnimationFrame(() => {
+        updating = false;
+        updateButton();
+      });
+    });
 
     observer.observe(history, {
-      childList: true,
-      subtree: true
+      childList: true
     });
 
-    updateLabel();
+    $("bulkSelectQuestions")?.addEventListener(
+      "click",
+      () => requestAnimationFrame(updateButton)
+    );
+
+    $("cancelQuestionSelection")?.addEventListener(
+      "click",
+      () => requestAnimationFrame(updateButton)
+    );
+
+    updateButton();
   }
 
-  /* ==========================================
-     3. REMEMBER ADMIN PAGE
-  ========================================== */
+  /* =============================================
+     3. SAVE AND RESTORE CURRENT ADMIN PAGE
+  ============================================= */
 
-  function setupPageMemory() {
-    const navigation =
+  function initializePageMemory() {
+    const navs = Array.from(
       document.querySelectorAll(
         ".nav[data-page]"
-      );
+      )
+    );
 
-    if (!navigation.length) return;
+    if (!navs.length) return;
 
-    navigation.forEach(button => {
-      button.addEventListener(
-        "click",
-        () => {
-          const name =
-            button.dataset.page;
+    navs.forEach(button => {
+      button.addEventListener("click", () => {
+        const target = button.dataset.page;
 
-          if (!PAGE_IDS.has(name)) {
-            return;
-          }
+        if (!VALID_PAGES.has(target)) {
+          return;
+        }
 
-          try {
-            sessionStorage.setItem(
-              STORAGE_KEY,
-              name
-            );
-          } catch (error) {
-            // Browsing still works if storage
-            // is disabled by the browser.
-          }
-        },
-        {capture: true}
-      );
+        try {
+          sessionStorage.setItem(
+            STORAGE_KEY,
+            target
+          );
+        } catch (error) {
+          // Navigation still works without storage.
+        }
+      });
     });
 
-    let savedPage = "";
+    let saved = "";
 
     try {
-      savedPage =
-        sessionStorage.getItem(
-          STORAGE_KEY
-        ) || "";
+      saved =
+        sessionStorage.getItem(STORAGE_KEY) || "";
     } catch (error) {}
 
-    if (!PAGE_IDS.has(savedPage)) {
+    if (!VALID_PAGES.has(saved)) {
       return;
     }
 
-    const target =
-      document.querySelector(
-        '.nav[data-page="' +
-        savedPage +
-        '"]'
-      );
+    const selectedNav = navs.find(
+      button => button.dataset.page === saved
+    );
 
-    if (!target) return;
-
-    // Use the existing admin.js navigation.
-    // This preserves titles, data refresh
-    // and all other page-specific behavior.
-    target.click();
+    if (selectedNav) {
+      // Use the existing admin.js navigation.
+      // This preserves its render and refresh logic.
+      selectedNav.click();
+    }
   }
 
-  /* ==========================================
-     INITIALIZE
-  ========================================== */
+  /* =============================================
+     INITIALIZATION
+  ============================================= */
 
   function initialize() {
     arrangeDashboard();
-    setupSelectAll();
-    setupPageMemory();
+    initializeSelectAll();
+    initializePageMemory();
   }
 
-  if (
-    document.readyState === "loading"
-  ) {
+  if (document.readyState === "loading") {
     document.addEventListener(
       "DOMContentLoaded",
       initialize,
       {once: true}
     );
-
   } else {
     initialize();
   }
