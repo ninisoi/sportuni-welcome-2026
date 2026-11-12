@@ -1,19 +1,398 @@
-<!DOCTYPE html>
 
+<!DOCTYPE html>
 <html lang="ka">
 <head>
-<meta charset="utf-8"/>
-<meta content="width=device-width,initial-scale=1,viewport-fit=cover" name="viewport"/>
-<meta content="#093759" name="theme-color"/>
-<title>SPORTUNI WELCOME 2026 • პასუხის გაგზავნა</title>
-<link href="https://fonts.googleapis.com" rel="preconnect"/>
-<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Georgian:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#093759">
+<title>SPORTUNI WELCOME 2026 | შენი პასუხი</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Georgian:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 
-/* =========================================
-   SPORTUNI LIVE POLL — MOBILE OPTIONS
-   Existing page design remains unchanged
-========================================= */
+<style>
+:root {
+  --navy: #093759;
+  --deep: #051c33;
+  --gold: #FDCB4E;
+  --muted: #c6d8e8;
+  --outline: rgba(255,255,255,.19);
+}
+
+* { box-sizing: border-box; }
+
+html {
+  min-height: 100%;
+  background: var(--deep);
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: "Noto Sans Georgian", system-ui, sans-serif;
+  color: white;
+  background:
+    radial-gradient(circle at 73% 5%,#266895 0%,transparent 36%),
+    radial-gradient(circle at 8% 70%,#174e73 0%,transparent 38%),
+    linear-gradient(160deg,#093759,#062b48 55%,#041a2e);
+  overflow-x: hidden;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px);
+  background-size: 34px 34px;
+  mask-image: linear-gradient(to bottom,#0007,transparent);
+}
+
+[hidden] {
+  display: none !important;
+}
+
+.stage {
+  width: min(100%,490px);
+  min-height: 100svh;
+  margin: auto;
+  position: relative;
+  isolation: isolate;
+  padding: 24px 20px max(32px,env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+@media (min-width:650px) {
+  .stage {
+    margin: 32px auto;
+    border: 1px solid #ffffff26;
+    border-radius: 35px;
+    min-height: min(880px,calc(100vh - 64px));
+    box-shadow: 0 25px 90px #0008;
+    padding: 30px 30px 38px;
+    background: linear-gradient(160deg,#0b3c60cc,#072a48dd);
+    overflow: hidden;
+  }
+}
+
+.decor {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.q {
+  position: absolute;
+  font-family: Arial,sans-serif;
+  font-weight: 900;
+  line-height: 1;
+  opacity: .11;
+  animation: levitate 9s ease-in-out infinite alternate;
+}
+
+.q:nth-child(1) {
+  top: 12%;
+  right: -5%;
+  font-size: 170px;
+  color: var(--gold);
+  transform: rotate(17deg);
+}
+.q:nth-child(2) {
+  top: 54%;
+  left: -12%;
+  font-size: 130px;
+  animation-delay: -4s;
+}
+.q:nth-child(3) {
+  top: 80%;
+  right: 5%;
+  font-size: 75px;
+  color: var(--gold);
+  animation-delay: -2s;
+}
+.q:nth-child(4) {
+  top: 35%;
+  left: 0%;
+  font-size: 42px;
+  animation-delay: -6s;
+}
+
+@keyframes levitate {
+  to { translate: 0 -18px; rotate: 4deg; }
+}
+
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.brand {
+  font-family: Arial,sans-serif;
+  font-size: 20px;
+  letter-spacing: -.045em;
+  font-weight: 900;
+}
+
+.brand span { color: var(--gold); }
+
+.welcome {
+  font-size: 10px;
+  letter-spacing: .14em;
+  color: #d6e9f5;
+  border: 1px solid #ffffff4a;
+  border-radius: 99px;
+  padding: 9px 11px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.intro { padding-top: 7px; }
+
+.kicker {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 11px;
+  letter-spacing: .15em;
+  font-weight: 900;
+  color: var(--gold);
+}
+
+.kicker i {
+  width: 17px;
+  height: 2px;
+  background: var(--gold);
+}
+
+.intro h1 {
+  font-size: clamp(27px,8vw,39px);
+  line-height: 1.16;
+  margin: 12px 0 10px;
+  letter-spacing: -.04em;
+  font-weight: 900;
+}
+
+.intro p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.75;
+}
+
+.question-area {
+  position: relative;
+  padding: 30px 23px 28px;
+  background: linear-gradient(132deg,#ffebaa,#fdcb4e 55%,#f2ae40);
+  border-radius: 33px 41px 30px 35px;
+  box-shadow: 0 22px 55px #0006,inset 0 0 0 2px #fff7;
+  color: var(--navy);
+  transform: rotate(-1deg);
+  margin: 5px 6px 3px;
+}
+
+.question-area::after {
+  content: "";
+  position: absolute;
+  bottom: -15px;
+  left: 43px;
+  width: 40px;
+  height: 25px;
+  background: #f7c247;
+  clip-path: polygon(0 0,100% 0,10% 100%);
+}
+
+.question-inner { transform: rotate(1deg); }
+
+.question-eyebrow {
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: .08em;
+  opacity: .68;
+  margin: 0 0 9px;
+}
+
+.question-area h2 {
+  font-size: clamp(25px,7vw,35px);
+  letter-spacing: -.04em;
+  line-height: 1.26;
+  margin: 0;
+  font-weight: 900;
+  overflow-wrap: anywhere;
+}
+
+.question-mini {
+  font-size: 12px;
+  opacity: .72;
+  font-weight: 700;
+  margin-top: 13px;
+}
+
+.q-badge {
+  position: absolute;
+  top: -17px;
+  right: 1px;
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  background: white;
+  border-radius: 50%;
+  color: var(--navy);
+  font-family: Arial,sans-serif;
+  font-size: 30px;
+  font-weight: 900;
+  box-shadow: 0 7px 22px #0003;
+}
+
+.card {
+  border: 1px solid var(--outline);
+  border-radius: 25px;
+  padding: 20px 18px;
+  background: linear-gradient(
+    145deg,
+    rgba(255,255,255,.12),
+    rgba(255,255,255,.065)
+  );
+  backdrop-filter: blur(18px);
+  box-shadow: 0 20px 65px #04192c65;
+}
+
+.card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.card-head h3 {
+  font-size: 17px;
+  margin: 0;
+  font-weight: 900;
+}
+
+.prompt {
+  font-size: 12px;
+  color: #c7dbea;
+  margin: 0 0 14px;
+  line-height: 1.65;
+}
+
+textarea {
+  display: block;
+  width: 100%;
+  min-height: 126px;
+  resize: vertical;
+  padding: 17px 16px;
+  background: rgba(3,29,51,.57);
+  color: white;
+  border: 1.5px solid #8ab5d04d;
+  border-radius: 18px;
+  outline: none;
+  font: 600 15px/1.7 "Noto Sans Georgian",system-ui,sans-serif;
+}
+
+textarea::placeholder { color: #b8cddd93; }
+
+textarea:focus {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 4px #fdcb4e22;
+}
+
+textarea.field-error {
+  border-color: #ff8c97;
+  background: rgba(133,29,49,.20);
+}
+
+.field-error-message {
+  display: none;
+  margin: 7px 2px 0;
+  color: #ffb7bc;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.field-error-message.show { display: block; }
+
+.form-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 10px 0 13px;
+}
+
+.hint {
+  font-size: 10px;
+  color: #bfd4e5;
+}
+
+.counter {
+  font-size: 12px;
+  font-weight: 900;
+  color: #e4eff7;
+}
+
+.counter.warn { color: #ffce86; }
+
+.emoji-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 20px;
+}
+
+.emoji-row > span {
+  font-size: 11px;
+  color: #c4d8e8;
+  margin-right: auto;
+}
+
+.emoji {
+  border: 1px solid #ffffff3a;
+  background: #ffffff14;
+  color: white;
+  border-radius: 12px;
+  font-size: 20px;
+  padding: 7px 9px;
+  cursor: pointer;
+}
+
+.primary {
+  width: 100%;
+  border: 0;
+  background: linear-gradient(135deg,#ffdf81,#fdcb4e);
+  border-radius: 16px;
+  color: #073352;
+  cursor: pointer;
+  padding: 16px 14px;
+  font: 900 15px "Noto Sans Georgian",system-ui,sans-serif;
+  box-shadow: 0 12px 27px #fdcb4e2c;
+}
+
+.primary:disabled {
+  filter: grayscale(.75);
+  opacity: .58;
+  cursor: not-allowed;
+}
+
+.note {
+  font-size: 11px;
+  line-height: 1.7;
+  text-align: center;
+  color: #abc6d9;
+  margin-top: 13px;
+}
+
+/* LIVE POLL OPTIONS */
 
 .poll-options {
   display: grid;
@@ -23,24 +402,25 @@
 
 .poll-option {
   width: 100%;
+  min-height: 74px;
   display: flex;
   align-items: center;
   gap: 12px;
   padding: 12px;
-  min-height: 74px;
   text-align: left;
   border: 1.5px solid #52728b;
   border-radius: 16px;
   background: rgba(3,29,51,.57);
-  color: #fff;
-  font-family: inherit;
+  color: white;
   cursor: pointer;
-  transition: border-color .18s, background .18s;
+  font-family: inherit;
+  transition: background .18s,border-color .18s;
 }
 
 .poll-option.selected {
-  border-color: #FDCB4E;
+  border-color: var(--gold);
   background: rgba(26,76,108,.75);
+  box-shadow: 0 0 0 2px #fdcb4e1f;
 }
 
 .poll-heart {
@@ -51,7 +431,6 @@
   place-items: center;
   border-radius: 12px;
   font-size: 27px;
-  line-height: 1;
 }
 
 .poll-label {
@@ -66,14 +445,19 @@
 .poll-radio {
   width: 20px;
   height: 20px;
-  flex-shrink: 0;
-  border-radius: 50%;
   border: 1.5px solid #90acc0;
+  border-radius: 50%;
+  flex-shrink: 0;
 }
 
 .poll-option.selected .poll-radio {
-  border: 5px solid #FDCB4E;
-  background: #093759;
+  border: 5px solid var(--gold);
+  background: var(--navy);
+}
+
+.poll-option:disabled {
+  cursor: not-allowed;
+  opacity: .6;
 }
 
 .poll-error {
@@ -83,77 +467,326 @@
   font-weight: 700;
 }
 
-.poll-error:empty {
-  display: none;
+.poll-error:empty { display: none; }
+
+/* SUBMISSION STATUS */
+
+.submitted-state {
+  border: 1px solid rgba(253,203,78,.35);
+  background: linear-gradient(
+    145deg,
+    rgba(253,203,78,.14),
+    rgba(255,255,255,.05)
+  );
+  border-radius: 23px;
+  padding: 24px 19px;
+  text-align: center;
+  box-shadow: 0 18px 50px #04192c50;
 }
 
-/* Keep the page clean when switching question types */
-[hidden] {
-  display: none !important;
+.submitted-state .lock-icon {
+  font-size: 35px;
+  margin-bottom: 11px;
 }
 
-<style>
-:root{--navy:#093759;--deep:#051c33;--gold:#FDCB4E;--text:#fff;--muted:#c6d8e8;--card:#133e61;--good:#a3edcf;--outline:rgba(255,255,255,.19)}
-*{box-sizing:border-box}html{min-height:100%;background:var(--deep)}body{margin:0;min-height:100vh;font-family:'Noto Sans Georgian',system-ui,sans-serif;color:white;background:radial-gradient(circle at 73% 5%,#266895 0%,transparent 36%),radial-gradient(circle at 8% 70%,#174e73 0%,transparent 38%),linear-gradient(160deg,#093759,#062b48 55%,#041a2e);overflow-x:hidden}
-body::before{content:'';position:fixed;inset:0;pointer-events:none;background:linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px);background-size:34px 34px;mask-image:linear-gradient(to bottom,#0007,transparent);z-index:0}
-.stage{width:min(100%,490px);min-height:100svh;margin:auto;position:relative;isolation:isolate;padding:24px 20px max(32px,env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:22px}
-@media(min-width:650px){.stage{margin:32px auto;border:1px solid #ffffff26;border-radius:35px;min-height:min(880px,calc(100vh - 64px));box-shadow:0 25px 90px #0008;padding:30px 30px 38px;background:linear-gradient(160deg,#0b3c60cc,#072a48dd);overflow:hidden}}
-.decor{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:-1}.q{position:absolute;font-family:Arial,sans-serif;font-weight:900;line-height:1;opacity:.11;animation:levitate 9s ease-in-out infinite alternate}.q:nth-child(1){top:12%;right:-5%;font-size:170px;color:var(--gold);transform:rotate(17deg)}.q:nth-child(2){top:54%;left:-12%;font-size:130px;color:white;animation-delay:-4s}.q:nth-child(3){top:80%;right:5%;font-size:75px;color:var(--gold);animation-delay:-2s}.q:nth-child(4){top:35%;left:0%;font-size:42px;color:white;animation-delay:-6s}@keyframes levitate{to{translate:0 -18px;rotate:4deg}}
-header{display:flex;justify-content:space-between;align-items:center;gap:10px}.brand{font-family:Arial,sans-serif;font-size:20px;letter-spacing:-.045em;font-weight:900}.brand span{color:var(--gold)}.welcome{font-size:10px;letter-spacing:.14em;color:#d6e9f5;border:1px solid #ffffff4a;border-radius:99px;padding:9px 11px;font-weight:800;white-space:nowrap}
-.intro{padding-top:7px}.kicker{display:inline-flex;gap:8px;align-items:center;font-size:11px;letter-spacing:.15em;font-weight:900;color:var(--gold)}.kicker i{width:17px;height:2px;background:var(--gold);display:block}.intro h1{font-size:clamp(27px,8vw,39px);line-height:1.16;margin:12px 0 10px;letter-spacing:-.04em;font-weight:900}.intro p{margin:0;color:var(--muted);font-size:13px;line-height:1.75}
-.question-area{position:relative;padding:30px 23px 28px;background:linear-gradient(132deg,#ffebaa,#fdcb4e 55%,#f2ae40);border-radius:33px 41px 30px 35px;box-shadow:0 22px 55px #0006,inset 0 0 0 2px #fff7;color:var(--navy);transform:rotate(-1deg);margin:5px 6px 3px}
-.question-area::after{content:'';position:absolute;bottom:-15px;left:43px;width:40px;height:25px;background:#f7c247;clip-path:polygon(0 0,100% 0,10% 100%)}.question-inner{transform:rotate(1deg)}.question-eyebrow{font-size:11px;font-weight:900;letter-spacing:.08em;opacity:.68;margin:0 0 9px}.question-area h2{font-size:clamp(25px,7vw,35px);letter-spacing:-.04em;line-height:1.26;margin:0;font-weight:900}.question-mini{font-size:12px;opacity:.72;font-weight:700;margin-top:13px}.q-badge{position:absolute;top:-17px;right:1px;width:48px;height:48px;display:grid;place-items:center;background:white;border-radius:50%;color:var(--navy);font-family:Arial,sans-serif;font-size:30px;font-weight:900;box-shadow:0 7px 22px #0003}
-.card{border:1px solid var(--outline);border-radius:25px;padding:20px 18px;background:linear-gradient(145deg,rgba(255,255,255,.12),rgba(255,255,255,.065));backdrop-filter:blur(18px);box-shadow:0 20px 65px #04192c65}
-.card-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}.card-head h3{font-size:17px;margin:0;font-weight:900;letter-spacing:-.025em}.step-tag{font-size:10px;color:var(--gold);font-weight:800;letter-spacing:.06em}.prompt{font-size:12px;color:#c7dbea;margin:0 0 14px;line-height:1.65}
-textarea{display:block;width:100%;min-height:126px;resize:vertical;padding:17px 16px;background:rgba(3,29,51,.57);color:white;border:1.5px solid #8ab5d04d;border-radius:18px;outline:none;font:600 15px/1.7 'Noto Sans Georgian',system-ui,sans-serif;transition:border-color .2s,box-shadow .2s}textarea::placeholder{color:#b8cddd93}textarea:focus{border-color:var(--gold);box-shadow:0 0 0 4px #fdcb4e22}textarea:disabled{opacity:.66}textarea.field-error{border-color:#ff8c97;background:rgba(133,29,49,.20);box-shadow:0 0 0 3px rgba(255,104,124,.13)}.field-error-message{display:none;margin:7px 2px 0;color:#ffb7bc;font-size:11px;font-weight:700}.field-error-message.show{display:block}
-.form-meta{display:flex;justify-content:space-between;align-items:center;gap:7px;margin:10px 0 13px}.hint{font-size:10px;color:#bfd4e5}.counter{font-size:12px;font-weight:900;color:#e4eff7;font-variant-numeric:tabular-nums}.counter.warn{color:#ffce86}
-.emoji-row{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:0 0 20px}.emoji-row>span{font-size:11px;color:#c4d8e8;margin-right:auto}.emoji{border:1px solid #ffffff3a;background:#ffffff14;color:white;border-radius:12px;font-size:20px;line-height:1;padding:7px 9px;cursor:pointer;transition:transform .18s,background .18s}.emoji:active{transform:scale(.88)}.emoji:hover{background:#ffffff29}
-.primary{width:100%;border:0;background:linear-gradient(135deg,#ffdf81,#fdcb4e);border-radius:16px;color:#073352;cursor:pointer;padding:16px 14px;font:900 15px 'Noto Sans Georgian',system-ui,sans-serif;box-shadow:0 12px 27px #fdcb4e2c;display:flex;justify-content:center;align-items:center;gap:10px;transition:transform .18s,filter .18s}.primary:disabled{filter:grayscale(.75);opacity:.58;cursor:not-allowed;box-shadow:none}.primary:not(:disabled):hover{filter:brightness(1.045)}.primary:not(:disabled):active{transform:scale(.985)}.primary svg{height:19px;width:19px}
-.note{font-size:11px;line-height:1.7;text-align:center;color:#abc6d9;margin-top:13px}.history{margin-top:2px}.history-heading{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}.history h3{font-size:15px;margin:0}.history-count{font-weight:800;font-size:11px;color:#b3cfe1}.history-items{display:grid;gap:9px}.answer-item{background:#ffffff0b;border:1px solid #ffffff1c;border-radius:15px;padding:12px 13px}.answer-item p{margin:0 0 8px;font-size:12px;line-height:1.55;overflow-wrap:anywhere}.status{display:inline-flex;align-items:center;gap:6px;font-size:10px;color:#ffdc8c;font-weight:800}.status:before{content:'';width:6px;height:6px;border-radius:50%;background:#ffcd66}.small-note{font-size:10px;color:#a7c2d4;line-height:1.5;margin-top:12px}
-footer{margin-top:auto;text-align:center;font-size:10px;color:#9fb9ce;letter-spacing:.04em;padding-top:3px}
-.overlay{position:fixed;inset:0;z-index:20;background:#041624d9;backdrop-filter:blur(9px);display:flex;align-items:flex-end;justify-content:center;padding:16px;opacity:0;visibility:hidden;transition:opacity .22s,visibility .22s}.overlay.show{opacity:1;visibility:visible}.modal{width:min(100%,455px);max-height:90svh;overflow:auto;background:linear-gradient(145deg,#174d71,#0b3455);border:1px solid #ffffff35;border-radius:27px;box-shadow:0 30px 80px #0008;padding:25px 20px 20px;transform:translateY(30px);transition:transform .24s}.overlay.show .modal{transform:translateY(0)}.modal-icon{width:49px;height:49px;display:grid;place-items:center;background:#fdcb4e25;border:1px solid #fdcb4e6a;color:var(--gold);border-radius:15px;font-size:24px;margin-bottom:13px}.modal h3{font-size:22px;margin:0 0 8px}.modal .sub{font-size:12px;color:#c6daeb;line-height:1.7;margin:0 0 18px}.preview-text{background:#041f37a3;border:1px solid #ffffff30;border-radius:15px;padding:16px;font-size:16px;font-weight:700;line-height:1.7;overflow-wrap:anywhere;white-space:pre-wrap;margin-bottom:19px}.actions{display:grid;grid-template-columns:1fr 1.2fr;gap:10px}.secondary{border-radius:15px;border:1px solid #ffffff51;background:#ffffff12;color:white;font:800 12px 'Noto Sans Georgian',sans-serif;cursor:pointer;padding:15px 7px}
-.success-content{text-align:center}.success-icon{width:90px;height:90px;margin:2px auto 17px;border-radius:50%;display:grid;place-items:center;background:#a2edc81a;border:2px solid #a2edc8;color:#a8f6ce;font-size:45px;animation:pop .65s cubic-bezier(.2,1.5,.3,1)}@keyframes pop{0%{transform:scale(.45);opacity:0}100%{transform:scale(1);opacity:1}}.success-content h3{font-size:25px}.success-content .sub{margin:10px auto 19px}.success-content .status{font-size:12px;margin:0 auto 23px;padding:9px 12px;background:#ffc95314;border-radius:100px}.confetti{position:absolute;pointer-events:none;inset:0;overflow:hidden}.confetti span{position:absolute;top:-18px;width:7px;height:13px;background:var(--gold);animation:fall 1.8s ease-in forwards;left:var(--x);animation-delay:var(--delay);transform:rotate(var(--rot))}.confetti span:nth-child(even){background:white}.confetti span:nth-child(3n){background:#89e2ef}@keyframes fall{to{transform:translateY(480px) rotate(390deg);opacity:0}}
-.demo-banner{position:relative;z-index:3;margin:0 -20px -8px;background:#07273e;box-shadow:0 4px 30px #04172940;border-bottom:1px solid #ffffff26;padding:7px 13px;text-align:center;font-size:10px;font-weight:700;color:#cfe0e9;letter-spacing:.03em}@media(min-width:650px){.demo-banner{margin:-30px -30px 6px}}@media(max-width:360px){.stage{padding-left:15px;padding-right:15px}.welcome{font-size:9px}.intro h1{font-size:27px}.card{padding:17px 15px}.question-area{padding:27px 18px 25px}}
+.submitted-state h3 {
+  font-size: 20px;
+  margin: 0 0 9px;
+}
 
-/* Single-response flow */
-.submitted-state{border:1px solid rgba(253,203,78,.35);background:linear-gradient(145deg,rgba(253,203,78,.14),rgba(255,255,255,.05));border-radius:23px;padding:24px 19px;text-align:center;box-shadow:0 18px 50px #04192c50}
-.submitted-state .lock-icon{font-size:35px;margin-bottom:11px}
-.submitted-state h3{font-size:20px;margin:0 0 9px}
-.submitted-state p{font-size:12px;line-height:1.8;color:#d3e4ef;margin:0 0 14px}
-.submitted-state .link{display:inline-block;background:#fdcb4e;color:#092f4f;border-radius:12px;padding:12px 17px;text-decoration:none;font-size:12px;font-weight:900}
+.submitted-state p {
+  font-size: 12px;
+  line-height: 1.8;
+  color: #d3e4ef;
+  margin: 0;
+}
+
+/* PREVIEW BEFORE SUBMIT */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  background: #041624df;
+  backdrop-filter: blur(9px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.modal {
+  width: min(100%,455px);
+  background: linear-gradient(145deg,#174d71,#0b3455);
+  border: 1px solid #ffffff35;
+  border-radius: 27px;
+  box-shadow: 0 30px 80px #0008;
+  padding: 25px 20px 20px;
+}
+
+.modal h3 {
+  font-size: 20px;
+  margin: 0 0 10px;
+}
+
+.modal p {
+  font-size: 12px;
+  color: #c6daeb;
+  line-height: 1.7;
+}
+
+.preview-text {
+  background: #041f37a3;
+  border: 1px solid #ffffff30;
+  border-radius: 15px;
+  padding: 16px;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  margin: 16px 0;
+}
+
+.actions {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  gap: 10px;
+}
+
+.secondary {
+  border-radius: 15px;
+  border: 1px solid #ffffff51;
+  background: #ffffff12;
+  color: white;
+  font: 800 12px "Noto Sans Georgian",sans-serif;
+  padding: 15px 7px;
+  cursor: pointer;
+}
+
+footer {
+  margin-top: auto;
+  text-align: center;
+  font-size: 10px;
+  color: #9fb9ce;
+  letter-spacing: .04em;
+  padding-top: 3px;
+}
+
+@media (max-width:360px) {
+  .stage {
+    padding-left: 15px;
+    padding-right: 15px;
+  }
+
+  .welcome { font-size: 9px; }
+  .intro h1 { font-size: 27px; }
+  .card { padding: 17px 15px; }
+  .question-area { padding: 27px 18px 25px; }
+}
 </style>
 </head>
+
 <body>
+
 <main class="stage">
-<div aria-hidden="true" class="decor"><span class="q">?</span><span class="q">?</span><span class="q">?</span><span class="q">?</span></div>
 
-<header><div aria-label="SPORTUNI" class="brand">SPORT<span>UNI</span> ✦</div><div class="welcome">WELCOME 2026</div></header>
-<section class="intro"><div class="kicker"><i></i> ახლა შენი ჯერია</div><h1>გახდი ჩვენი<br/>ისტორიის ნაწილი<span style="color:var(--gold)">.</span></h1><p>შენი ხმა მნიშვნელოვანია! უპასუხე კითხვას და შენი სიტყვებიც გახდება SPORTUNI-ს დღევანდელი დღის ნაწილი.</p></section>
-<section aria-label="დღევანდელი კითხვა" class="question-area"><span aria-hidden="true" class="q-badge">?</span><div class="question-inner"><div class="question-eyebrow">✦ დღევანდელი კითხვა</div><h2 id="question">კითხვა იტვირთება…</h2><div class="question-mini">ჩემპიონები სწავლობენ აქ 🏆</div></div></section>
-<section class="card" id="formCard"><div class="card-head"><h3>შენი პასუხი</h3></div><p class="prompt">დაწერე ის, რასაც ფიქრობ — მოკლედ, გულწრფელად და შენი სიტყვებით.</p>
-<form id="answerForm">
-<!-- LIVE POLL: appears only for poll questions -->
-<div id="pollInputArea" hidden>
-
-  <div
-    id="pollOptions"
-    class="poll-options"
-    role="radiogroup"
-    aria-label="აირჩიე ერთი პასუხი">
+  <div class="decor" aria-hidden="true">
+    <span class="q">?</span>
+    <span class="q">?</span>
+    <span class="q">?</span>
+    <span class="q">?</span>
   </div>
 
-  <p
-    id="pollError"
-    class="poll-error"
-    role="alert"
-    aria-live="polite">
-  </p>
+  <header>
+    <div class="brand" aria-label="SPORTUNI">
+      SPORT<span>UNI</span> ✦
+    </div>
+    <div class="welcome">WELCOME 2026</div>
+  </header>
 
-</div>
-<!-- END LIVE POLL -->
-<label for="answer" style="position:absolute;left:-9999px">შენი პასუხი</label><textarea aria-describedby="counter answerError" autocomplete="off" id="answer" placeholder="ჩაწერე შენი პასუხი აქ..." spellcheck="true"></textarea><p class="field-error-message" id="answerError" role="alert">ველი ცარიელია — ჩაწერე შენი პასუხი.</p><div class="form-meta"><span class="hint">მაქსიმუმ 100 სიმბოლო</span><span class="counter" id="counter">0 / 100</span></div><div class="emoji-row"><span>დაამატე ემოცია</span><button aria-label="ლურჯი გული" class="emoji" data-emoji="💙" type="button">💙</button><button aria-label="თასი" class="emoji" data-emoji="🏆" type="button">🏆</button><button aria-label="ცეცხლი" class="emoji" data-emoji="🔥" type="button">🔥</button><button aria-label="ნათება" class="emoji" data-emoji="✨" type="button">✨</button><button aria-label="ყვითელი გული" class="emoji" data-emoji="💛" type="button">💛</button></div><button class="primary" id="sendBtn" type="submit">გაგზავნა  ↗</button></form><div class="note">გაგზავნამდე შეგიძლია ტექსტი პირდაპირ ველში ჩაასწორო.</div>
-</section><section class="submitted-state" hidden="" id="submittedState"><div class="lock-icon">✓</div><h3>შენი პასუხი უკვე მიღებულია!</h3><p>დაელოდე შემდეგ კითხვას.</p></section>
-<footer>SPORTUNI WELCOME 2026 · ჩემპიონები სწავლობენ აქ</footer>
+  <section class="intro">
+    <div class="kicker">
+      <i></i>
+      ახლა შენი ჯერია
+    </div>
+
+    <h1>
+      გახდი ჩვენი
+      <br>
+      ისტორიის ნაწილი<span style="color:var(--gold)">.</span>
+    </h1>
+
+    <p>
+      შენი ხმა მნიშვნელოვანია! უპასუხე კითხვას
+      და შენი სიტყვებიც გახდება SPORTUNI-ს
+      დღევანდელი დღის ნაწილი.
+    </p>
+  </section>
+
+  <section class="question-area" aria-label="დღევანდელი კითხვა">
+    <span class="q-badge" aria-hidden="true">?</span>
+
+    <div class="question-inner">
+      <div class="question-eyebrow">
+        ✦ დღევანდელი კითხვა
+      </div>
+
+      <h2 id="question">კითხვა იტვირთება…</h2>
+
+      <div class="question-mini">
+        ჩემპიონები სწავლობენ აქ 🏆
+      </div>
+    </div>
+  </section>
+
+  <section class="card" id="formCard">
+
+    <div class="card-head">
+      <h3>შენი პასუხი</h3>
+    </div>
+
+    <p class="prompt" id="answerPrompt">
+      დაწერე ის, რასაც ფიქრობ — მოკლედ,
+      გულწრფელად და შენი სიტყვებით.
+    </p>
+
+    <form id="answerForm">
+
+      <!-- TEXT QUESTION -->
+      <div id="textInputArea">
+
+        <label for="answer" style="position:absolute;left:-9999px">
+          შენი პასუხი
+        </label>
+
+        <textarea
+          id="answer"
+          aria-describedby="counter answerError"
+          autocomplete="off"
+          placeholder="ჩაწერე შენი პასუხი აქ..."
+          spellcheck="true"></textarea>
+
+        <p
+          id="answerError"
+          class="field-error-message"
+          role="alert">
+        </p>
+
+        <div class="form-meta">
+          <span class="hint">მაქსიმუმ 100 სიმბოლო</span>
+          <span class="counter" id="counter">0 / 100</span>
+        </div>
+
+        <div class="emoji-row">
+          <span>დაამატე ემოცია</span>
+
+          <button type="button" class="emoji" data-emoji="💙">💙</button>
+          <button type="button" class="emoji" data-emoji="🏆">🏆</button>
+          <button type="button" class="emoji" data-emoji="🔥">🔥</button>
+          <button type="button" class="emoji" data-emoji="✨">✨</button>
+          <button type="button" class="emoji" data-emoji="💛">💛</button>
+        </div>
+
+      </div>
+
+      <!-- LIVE POLL -->
+      <div id="pollInputArea" hidden>
+
+        <div
+          id="pollOptions"
+          class="poll-options"
+          role="radiogroup"
+          aria-label="აირჩიე ერთი პასუხი">
+        </div>
+
+        <p
+          id="pollError"
+          class="poll-error"
+          role="alert"
+          aria-live="polite">
+        </p>
+
+      </div>
+
+      <button
+        type="submit"
+        id="sendBtn"
+        class="primary"
+        disabled>
+        გაგზავნა ↗
+      </button>
+
+    </form>
+
+    <div class="note" id="answerNote">
+      გაგზავნამდე შეგიძლია პასუხი შეცვალო.
+    </div>
+
+  </section>
+
+  <section class="submitted-state" id="submittedState" hidden>
+    <div class="lock-icon">✓</div>
+
+    <h3 id="submittedTitle">
+      შენი პასუხი უკვე მიღებულია!
+    </h3>
+
+    <p id="submittedMessage">
+      მადლობა მონაწილეობისთვის!
+      დაელოდე შემდეგ კითხვას.
+    </p>
+  </section>
+
+  <footer>
+    SPORTUNI WELCOME 2026 · ჩემპიონები სწავლობენ აქ
+  </footer>
+
 </main>
-<script src="/static/student.js"></script></body>
+
+<!-- ANSWER PREVIEW -->
+
+<div class="overlay" id="previewOverlay" hidden>
+
+  <div
+    class="modal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="previewTitle">
+
+    <h3 id="previewTitle">
+      გადაამოწმე შენი პასუხი
+    </h3>
+
+    <p>
+      გაგზავნის შემდეგ ამ კითხვაზე პასუხის
+      შეცვლა აღარ შეგეძლება.
+    </p>
+
+    <div class="preview-text" id="previewText"></div>
+
+    <div class="actions">
+
+      <button
+        class="secondary"
+        id="previewEdit"
+        type="button">
+        შეცვლა
+      </button>
+
+      <button
+        class="primary"
+        id="previewConfirm"
+        type="button">
+        დადასტურება
+      </button>
+
+    </div>
+
+  </div>
+</div>
+
+<script src="/static/student.js"></script>
+
+</body>
 </html>
