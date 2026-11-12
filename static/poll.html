@@ -3,570 +3,677 @@
 <html lang="ka">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>SPORTUNI WELCOME 2026 | Live Poll</title>
 
 <style>
-* {
-  box-sizing: border-box;
+*{box-sizing:border-box}
+html,body{margin:0;width:100%;height:100%;overflow:hidden}
+body{
+  background:#05090e;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-family:Arial,"Noto Sans Georgian",sans-serif;
 }
-
-html, body {
-  margin: 0;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
+#pollScreen{
+  position:relative;
+  width:min(100vw,133.333vh);
+  aspect-ratio:4/3;
+  container-type:inline-size;
+  background:#0b3654;
+  overflow:hidden;
+  isolation:isolate;
+  border-radius:18px;
+  color:#fff;
 }
-
-body {
-  background: #05090e;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: Arial, "Noto Sans Georgian", sans-serif;
+#bubbleCanvas{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  pointer-events:none;
 }
-
-#pollScreen {
-  position: relative;
-  width: min(100vw, 133.333vh);
-  aspect-ratio: 4 / 3;
-  container-type: inline-size;
-  background: #0b3654;
-  overflow: hidden;
-  isolation: isolate;
-  border-radius: 18px;
-  color: white;
+.topline{
+  position:absolute;
+  z-index:2;
+  top:3%;left:2%;right:2%;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
 }
-
-#bubbleCanvas {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
+.brand{
+  font-size:2.15cqw;
+  color:#ffda76;
+  white-space:nowrap;
 }
-
-.topline {
-  position: absolute;
-  z-index: 2;
-  top: 3%;
-  left: 2%;
-  right: 2%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+.live-label{
+  font-size:1.65cqw;
+  padding:.7cqw 1.4cqw;
+  border-radius:30px;
+  background:#315674;
+  white-space:nowrap;
 }
-
-.brand {
-  font-size: 2.15cqw;
-  color: #ffda76;
-  white-space: nowrap;
+.question{
+  position:absolute;
+  z-index:2;
+  top:10%;
+  left:7%;
+  right:7%;
+  margin:0;
+  font-size:3.6cqw;
+  line-height:1.35;
+  font-weight:750;
+  text-align:center;
+  overflow-wrap:anywhere;
 }
-
-.live-label {
-  font-size: 1.65cqw;
-  padding: .7cqw 1.4cqw;
-  border-radius: 30px;
-  background: #315674;
-  white-space: nowrap;
+.results{
+  position:absolute;
+  z-index:2;
+  left:3%;
+  right:3%;
+  bottom:8%;
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:1.2cqw;
+  align-items:end;
+  text-align:center;
 }
-
-.question {
-  position: absolute;
-  z-index: 2;
-  top: 10%;
-  left: 7%;
-  right: 7%;
-  margin: 0;
-  font-size: 3.6cqw;
-  line-height: 1.35;
-  font-weight: 750;
-  text-align: center;
+.results.many{
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  bottom:6%;
 }
-
-.results {
-  position: absolute;
-  z-index: 2;
-  left: 3%;
-  right: 3%;
-  bottom: 8%;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 1.2cqw;
-  align-items: end;
-  text-align: center;
+.result{min-width:0}
+.percentage{
+  display:table;
+  margin:0 auto;
+  font-weight:750;
+  font-size:4.25cqw;
+  line-height:1.25;
 }
-
-.results.many {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  bottom: 6%;
+.heart{
+  display:table;
+  margin:1.2cqw auto .7cqw;
+  font-size:2.25cqw;
 }
-
-.result {
-  min-width: 0;
+.faculty{
+  display:table;
+  margin:auto;
+  max-width:100%;
+  color:#d1dfe9;
+  font-size:1.9cqw;
+  line-height:1.3;
+  overflow-wrap:anywhere;
 }
-
-.percentage {
-  display: table;
-  margin: 0 auto;
-  font-weight: 750;
-  font-size: 4.25cqw;
-  line-height: 1.25;
+.results.many .percentage{font-size:2.8cqw}
+.results.many .heart{
+  font-size:1.8cqw;
+  margin:.5cqw auto;
 }
-
-.heart {
-  display: table;
-  margin: 1.2cqw auto .7cqw;
-  font-size: 2.25cqw;
+.results.many .faculty{font-size:1.15cqw}
+.footer{
+  position:absolute;
+  z-index:2;
+  bottom:1.4%;
+  left:50%;
+  transform:translateX(-50%);
+  font-size:1.5cqw;
+  color:#cbd9e3;
+  white-space:nowrap;
 }
-
-.faculty {
-  display: table;
-  margin: auto;
-  max-width: 100%;
-  color: #d1dfe9;
-  font-size: 1.9cqw;
-  line-height: 1.3;
-  overflow-wrap: anywhere;
+#loading{
+  position:absolute;
+  z-index:4;
+  inset:0;
+  display:grid;
+  place-items:center;
+  background:#0b3654;
+  color:#d9e8f2;
+  font-size:2.1cqw;
+  letter-spacing:.02em;
 }
-
-.results.many .percentage {
-  font-size: 2.8cqw;
-}
-
-.results.many .heart {
-  font-size: 1.8cqw;
-  margin: .5cqw auto;
-}
-
-.results.many .faculty {
-  font-size: 1.15cqw;
-}
-
-.footer {
-  position: absolute;
-  z-index: 2;
-  bottom: 1.4%;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 1.5cqw;
-  color: #cbd9e3;
-  white-space: nowrap;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  /* The projector will use a static frame if
-     the device requests reduced motion. */
-}
+#loading[hidden]{display:none!important}
 </style>
 </head>
 
 <body>
-
 <main id="pollScreen">
-
-  <canvas id="bubbleCanvas"
-          aria-hidden="true"></canvas>
+  <canvas id="bubbleCanvas" aria-hidden="true"></canvas>
 
   <header class="topline">
-    <span class="brand protect">
-      SPORTUNI WELCOME 2026
-    </span>
-
-    <span class="live-label protect">
-      LIVE POLL
-    </span>
+    <span class="brand protect">SPORTUNI WELCOME 2026</span>
+    <span class="live-label protect">LIVE POLL</span>
   </header>
 
-  <h1 id="pollQuestion"
-      class="question protect">
-    რომელი ფაკულტეტიდან ხარ?
-  </h1>
-
-  <section id="pollResults"
-           class="results">
-  </section>
+  <h1 class="question protect" id="pollQuestion"></h1>
+  <section class="results" id="pollResults"></section>
 
   <footer class="footer protect">
     SPORTUNI • ჩემპიონები სწავლობენ აქ
   </footer>
 
+  <div id="loading" aria-live="polite">
+    შედეგები იტვირთება…
+  </div>
 </main>
 
 <script>
 (() => {
   "use strict";
 
-  const $ = id => document.getElementById(id);
+  const screen = document.getElementById("pollScreen");
+  const canvas = document.getElementById("bubbleCanvas");
+  const ctx = canvas.getContext("2d");
+  const resultBox = document.getElementById("pollResults");
+  const title = document.getElementById("pollQuestion");
+  const loadingBox = document.getElementById("loading");
 
-  const screen = $("pollScreen");
-  const canvas = $("bubbleCanvas");
-  const context = canvas.getContext("2d");
-  const results = $("pollResults");
-  const question = $("pollQuestion");
-
-  if (!context) return;
+  if (!ctx) return;
 
   const TOTAL = 190;
 
-  const defaults = [
-    {text:"მწვრთნელთა ფაკულტეტი",
-     color:"#FDCB4E",heart:"💛"},
-    {text:"ფიზიკური მედიცინისა და რეაბილიტაციის ფაკულტეტი",
-     color:"#49B99C",heart:"💚"},
-    {text:"სპორტის მენეჯმენტისა და ადმინისტრირების ფაკულტეტი",
-     color:"#65A8E7",heart:"🩵"}
-  ];
+  // Percentage checks: approximately every 600 ms.
+  const POLL_INTERVAL = 600;
 
-  let options = defaults.map(x => ({
-    ...x, percentage: 0
-  }));
+  // All bubbles reach their new colors in about 450 ms.
+  const COLOR_DURATION = 450;
+
+  const expectedQuestion =
+    new URLSearchParams(location.search).get("q");
 
   let questionId = null;
+  let options = [];
   let hasVotes = false;
   let particles = [];
-  let areas = [];
+  let protectedAreas = [];
+
   let width = 1;
   let height = 1;
-  let previousTime = 0;
-  let lastColorAdjustment = 0;
-  let loading = false;
+  let lastFrame = 0;
 
-  function rand(min, max) {
-    return min + Math.random() * (max - min);
+  let fetching = false;
+  let ready = false;
+  let lastSignature = "";
+  let resizeQueued = false;
+
+  const reducedMotion = matchMedia(
+    "(prefers-reduced-motion: reduce)"
+  ).matches;
+
+  function random(min,max){
+    return min+Math.random()*(max-min);
   }
 
-  function getShares() {
-    if (!options.length) return [];
+  function hexToRgb(hex){
+    const value = String(hex || "#FDCB4E")
+      .replace("#","");
 
-    // Before the first vote, colors are evenly mixed.
-    if (!hasVotes) {
-      return options.map(() => 1 / options.length);
+    const full = value.length === 3
+      ? value.split("").map(c=>c+c).join("")
+      : value;
+
+    const n = parseInt(full,16);
+
+    if (!Number.isFinite(n)) {
+      return [253,203,78];
     }
 
-    const values = options.map(o =>
-      Math.max(0, Number(o.percentage) || 0)
+    return [
+      (n>>16)&255,
+      (n>>8)&255,
+      n&255
+    ];
+  }
+
+  function mixColor(a,b,t){
+    const progress=Math.max(0,Math.min(1,t));
+
+    return [
+      a[0]+(b[0]-a[0])*progress,
+      a[1]+(b[1]-a[1])*progress,
+      a[2]+(b[2]-a[2])*progress
+    ];
+  }
+
+  function asRgb(rgb){
+    return "rgb("+
+      Math.round(rgb[0])+","+
+      Math.round(rgb[1])+","+
+      Math.round(rgb[2])+")";
+  }
+
+  function colorShares(){
+    if(!options.length) return [];
+
+    if(!hasVotes){
+      return options.map(()=>1/options.length);
+    }
+
+    const values=options.map(o=>
+      Math.max(0,Number(o.percentage)||0)
     );
 
-    const sum = values.reduce((a, b) => a + b, 0);
+    const sum=values.reduce((a,b)=>a+b,0);
 
-    return sum > 0
-      ? values.map(v => v / sum)
-      : options.map(() => 1 / options.length);
+    return sum
+      ? values.map(v=>v/sum)
+      : options.map(()=>1/options.length);
   }
 
-  function pickOptionIndex() {
-    const shares = getShares();
-    let value = Math.random();
+  function targetCounts(){
+    const shares=colorShares();
+    if(!shares.length) return [];
 
-    for (let i = 0; i < shares.length; i++) {
-      value -= shares[i];
-      if (value <= 0) return i;
+    const exact=shares.map(s=>s*TOTAL);
+    const counts=exact.map(Math.floor);
+
+    let remaining=TOTAL-counts.reduce(
+      (a,b)=>a+b,0
+    );
+
+    const order=exact.map((n,i)=>({
+      i,
+      fraction:n-Math.floor(n)
+    })).sort((a,b)=>b.fraction-a.fraction);
+
+    for(let i=0;i<remaining;i++){
+      counts[order[i].i]++;
     }
 
-    return Math.max(0, shares.length - 1);
+    return counts;
   }
 
-  function createParticle(index) {
-    const angle = rand(0, Math.PI * 2);
-    const velocity = rand(30, 62);
+  function createParticle(index){
+    const angle=random(0,Math.PI*2);
+    const velocity=random(30,62);
+    const rgb=hexToRgb(options[index]?.color);
 
     return {
-      x: rand(0, width),
-      y: rand(0, height),
-      vx: Math.cos(angle) * velocity,
-      vy: Math.sin(angle) * velocity,
-      radius: rand(width * .006, width * .016),
-      optionIndex: index,
-      opacity: rand(.5, .83)
+      x:random(0,width),
+      y:random(0,height),
+      vx:Math.cos(angle)*velocity,
+      vy:Math.sin(angle)*velocity,
+      radius:random(width*.006,width*.016),
+      opacity:random(.5,.83),
+      index,
+      from:rgb.slice(),
+      to:rgb.slice(),
+      rgb:rgb.slice(),
+      changeAt:0,
+      duration:COLOR_DURATION
     };
   }
 
-  function resetParticles() {
-    particles = Array.from(
-      {length: TOTAL},
-      () => createParticle(pickOptionIndex())
-    );
+  function resetParticles(){
+    const counts=targetCounts();
+    const indexes=[];
+
+    counts.forEach((count,index)=>{
+      for(let i=0;i<count;i++){
+        indexes.push(index);
+      }
+    });
+
+    // Shuffle colors so different colors mix naturally
+    // throughout the screen.
+    for(let i=indexes.length-1;i>0;i--){
+      const j=Math.floor(Math.random()*(i+1));
+      [indexes[i],indexes[j]]=[indexes[j],indexes[i]];
+    }
+
+    particles=indexes.map(createParticle);
   }
 
-  function renderResults() {
-    results.replaceChildren();
-    results.classList.toggle(
-      "many",
-      options.length > 3
+  function scheduleColors(){
+    if(!particles.length || !options.length){
+      resetParticles();
+      return;
+    }
+
+    const desired=targetCounts();
+    const groups=options.map(()=>[]);
+
+    particles.forEach((p,index)=>{
+      groups[p.index]?.push(index);
+    });
+
+    const deficit=desired.map(
+      (count,index)=>count-groups[index].length
     );
 
-    options.forEach(option => {
-      const item = document.createElement("div");
-      item.className = "result";
+    const now=performance.now();
+    const changes=[];
 
-      const percentage = document.createElement("div");
-      percentage.className = "percentage protect";
-      percentage.style.color = option.color;
-      percentage.textContent = hasVotes
-        ? option.percentage + "%"
+    for(let to=0;to<deficit.length;to++){
+      while(deficit[to]>0){
+        const from=deficit.findIndex(n=>n<0);
+        if(from<0) break;
+
+        const particleIndex=groups[from].pop();
+        if(particleIndex===undefined) break;
+
+        deficit[from]++;
+        deficit[to]--;
+
+        groups[to].push(particleIndex);
+        changes.push({
+          particleIndex,
+          targetIndex:to
+        });
+      }
+    }
+
+    changes.forEach(({particleIndex,targetIndex},i)=>{
+      const p=particles[particleIndex];
+
+      const elapsed=Math.max(
+        0,
+        Math.min(1,(now-p.changeAt)/p.duration)
+      );
+
+      const current=mixColor(p.from,p.to,elapsed);
+
+      p.from=current;
+      p.rgb=current;
+      p.to=hexToRgb(options[targetIndex].color);
+      p.index=targetIndex;
+
+      // Small offset creates a flowing color transition.
+      p.changeAt=now+Math.random()*100;
+      p.duration=COLOR_DURATION;
+    });
+  }
+
+  function renderResults(){
+    resultBox.replaceChildren();
+
+    resultBox.classList.toggle(
+      "many",
+      options.length>3
+    );
+
+    options.forEach(option=>{
+      const item=document.createElement("div");
+      item.className="result";
+
+      const percent=document.createElement("div");
+      percent.className="percentage protect";
+      percent.style.color=option.color;
+      percent.textContent=hasVotes
+        ? option.percentage+"%"
         : "—";
 
-      const heart = document.createElement("div");
-      heart.className = "heart protect";
-      heart.textContent = option.heart;
+      const heart=document.createElement("div");
+      heart.className="heart protect";
+      heart.textContent=option.heart;
 
-      const label = document.createElement("div");
-      label.className = "faculty protect";
-      label.textContent = option.text;
+      const label=document.createElement("div");
+      label.className="faculty protect";
+      label.textContent=option.text;
 
-      item.append(percentage, heart, label);
-      results.appendChild(item);
+      item.append(percent,heart,label);
+      resultBox.appendChild(item);
     });
 
-    updateProtectedAreas();
+    updateAreas();
   }
 
-  function updateProtectedAreas() {
-    const base = screen.getBoundingClientRect();
+  function updateAreas(){
+    const base=screen.getBoundingClientRect();
 
-    areas = [...screen.querySelectorAll(".protect")]
-      .map(el => {
-        const rect = el.getBoundingClientRect();
+    protectedAreas=[
+      ...screen.querySelectorAll(".protect")
+    ].map(element=>{
+      const rect=element.getBoundingClientRect();
 
-        return {
-          left: rect.left - base.left - 6,
-          right: rect.right - base.left + 6,
-          top: rect.top - base.top - 6,
-          bottom: rect.bottom - base.top + 6
-        };
+      return {
+        left:rect.left-base.left-6,
+        right:rect.right-base.left+6,
+        top:rect.top-base.top-6,
+        bottom:rect.bottom-base.top+6
+      };
+    });
+  }
+
+  function overlapsText(x,y,r){
+    return protectedAreas.some(area=>
+      x+r>area.left &&
+      x-r<area.right &&
+      y+r>area.top &&
+      y-r<area.bottom
+    );
+  }
+
+  function resize(){
+    const rect=screen.getBoundingClientRect();
+
+    if(!rect.width||!rect.height) return;
+
+    const oldWidth=width;
+    const oldHeight=height;
+
+    width=rect.width;
+    height=rect.height;
+
+    const ratio=Math.min(
+      devicePixelRatio||1,2
+    );
+
+    canvas.width=Math.round(width*ratio);
+    canvas.height=Math.round(height*ratio);
+
+    ctx.setTransform(ratio,0,0,ratio,0,0);
+
+    if(particles.length){
+      particles.forEach(p=>{
+        p.x=p.x/oldWidth*width;
+        p.y=p.y/oldHeight*height;
+        p.radius=p.radius/oldWidth*width;
       });
-  }
-
-  function overlapsText(x, y, r) {
-    return areas.some(a =>
-      x + r > a.left &&
-      x - r < a.right &&
-      y + r > a.top &&
-      y - r < a.bottom
-    );
-  }
-
-  function resize() {
-    const rect = screen.getBoundingClientRect();
-    if (!rect.width || !rect.height) return;
-
-    width = rect.width;
-    height = rect.height;
-
-    const ratio = Math.min(
-      window.devicePixelRatio || 1, 2
-    );
-
-    canvas.width = Math.round(width * ratio);
-    canvas.height = Math.round(height * ratio);
-
-    context.setTransform(ratio, 0, 0, ratio, 0, 0);
-
-    updateProtectedAreas();
-    resetParticles();
-  }
-
-  // Gradually move the colors towards the
-  // real vote percentages without sudden jumps.
-  function adjustColors() {
-    if (!options.length || !particles.length) return;
-
-    const shares = getShares();
-
-    const desired = shares.map(s =>
-      Math.round(s * particles.length)
-    );
-
-    let difference = particles.length -
-      desired.reduce((a, b) => a + b, 0);
-
-    let cursor = 0;
-    while (difference !== 0) {
-      const i = cursor % desired.length;
-      if (difference > 0) {
-        desired[i]++;
-        difference--;
-      } else if (desired[i] > 0) {
-        desired[i]--;
-        difference++;
-      }
-      cursor++;
     }
 
-    const actual = options.map((_, index) =>
-      particles.filter(p =>
-        p.optionIndex === index
-      ).length
-    );
-
-    const under = actual.findIndex((n, i) =>
-      n < desired[i]
-    );
-
-    if (under < 0) return;
-
-    const over = actual.findIndex((n, i) =>
-      n > desired[i]
-    );
-
-    if (over < 0) return;
-
-    const candidates = particles.filter(p =>
-      p.optionIndex === over
-    );
-
-    if (!candidates.length) return;
-
-    const particle = candidates[
-      Math.floor(Math.random() * candidates.length)
-    ];
-
-    particle.optionIndex = under;
+    updateAreas();
   }
 
-  function frame(now) {
-    const dt = previousTime
-      ? Math.min((now - previousTime) / 1000, .04)
+  function frame(now){
+    const dt=lastFrame
+      ? Math.min((now-lastFrame)/1000,.04)
       : 0;
 
-    previousTime = now;
-    context.clearRect(0, 0, width, height);
+    lastFrame=now;
+    ctx.clearRect(0,0,width,height);
 
-    if (now - lastColorAdjustment > 90) {
-      adjustColors();
-      lastColorAdjustment = now;
+    for(const p of particles){
+      if(!reducedMotion){
+        const nx=p.x+p.vx*dt;
+        const ny=p.y+p.vy*dt;
+
+        if(overlapsText(nx,ny,p.radius)){
+          if(!overlapsText(nx,p.y,p.radius)){
+            p.vy*=-1;
+            p.x=nx;
+          }else if(!overlapsText(p.x,ny,p.radius)){
+            p.vx*=-1;
+            p.y=ny;
+          }else{
+            p.vx*=-1;
+            p.vy*=-1;
+          }
+        }else{
+          p.x=nx;
+          p.y=ny;
+        }
+
+        // Leave one edge and enter from the opposite edge.
+        if(p.x>width+p.radius){
+          p.x=-p.radius;
+        }else if(p.x< -p.radius){
+          p.x=width+p.radius;
+        }
+
+        if(p.y>height+p.radius){
+          p.y=-p.radius;
+        }else if(p.y< -p.radius){
+          p.y=height+p.radius;
+        }
+      }
+
+      if(overlapsText(p.x,p.y,p.radius)){
+        continue;
+      }
+
+      const t=Math.max(
+        0,
+        Math.min(
+          1,
+          (now-p.changeAt)/p.duration
+        )
+      );
+
+      const eased=t*t*(3-2*t);
+      p.rgb=mixColor(p.from,p.to,eased);
+
+      ctx.globalAlpha=p.opacity;
+      ctx.fillStyle=asRgb(p.rgb);
+
+      ctx.beginPath();
+      ctx.arc(p.x,p.y,p.radius,0,Math.PI*2);
+      ctx.fill();
     }
 
-    const reducedMotion =
-      window.matchMedia(
-        "(prefers-reduced-motion: reduce)"
-      ).matches;
-
-    particles.forEach(p => {
-      if (!reducedMotion) {
-        const nx = p.x + p.vx * dt;
-        const ny = p.y + p.vy * dt;
-
-        if (overlapsText(nx, ny, p.radius)) {
-          if (!overlapsText(nx, p.y, p.radius)) {
-            p.vy *= -1;
-            p.x = nx;
-          } else if (!overlapsText(
-            p.x, ny, p.radius
-          )) {
-            p.vx *= -1;
-            p.y = ny;
-          } else {
-            p.vx *= -1;
-            p.vy *= -1;
-          }
-        } else {
-          p.x = nx;
-          p.y = ny;
-        }
-
-        // Invisible re-entry from the opposite edge.
-        if (p.x > width + p.radius) {
-          p.x = -p.radius;
-        } else if (p.x < -p.radius) {
-          p.x = width + p.radius;
-        }
-
-        if (p.y > height + p.radius) {
-          p.y = -p.radius;
-        } else if (p.y < -p.radius) {
-          p.y = height + p.radius;
-        }
-      }
-
-      if (overlapsText(p.x, p.y, p.radius)) {
-        return;
-      }
-
-      const color = options[p.optionIndex];
-      if (!color) return;
-
-      context.globalAlpha = p.opacity;
-      context.fillStyle = color.color;
-      context.beginPath();
-      context.arc(
-        p.x, p.y, p.radius,
-        0, Math.PI * 2
-      );
-      context.fill();
-    });
-
-    context.globalAlpha = 1;
+    ctx.globalAlpha=1;
     requestAnimationFrame(frame);
   }
 
-  async function loadResults() {
-    if (loading) return;
-    loading = true;
+  function tellParentReady(){
+    if(window.parent===window) return;
 
-    try {
-      const response = await fetch(
+    window.parent.postMessage({
+      type:"SPORTUNI_POLL_READY",
+      questionId
+    },location.origin);
+  }
+
+  async function loadResults(){
+    if(fetching) return;
+    fetching=true;
+
+    try{
+      const response=await fetch(
         "/api/screen/poll",
-        {cache: "no-store"}
+        {
+          cache:"no-store",
+          credentials:"same-origin"
+        }
       );
 
-      if (!response.ok) {
-        throw new Error("Poll results unavailable");
+      if(!response.ok){
+        throw new Error("Poll API error");
       }
 
-      const data = await response.json();
+      const data=await response.json();
 
-      if (!data.active || !data.question) {
+      if(!data.active||!data.question){
         return;
       }
 
-      const nextOptions = Array.isArray(data.options)
-        ? data.options
-        : [];
-
-      if (!nextOptions.length) return;
-
-      const changedQuestion =
-        questionId !== data.question.id;
-
-      questionId = data.question.id;
-      question.textContent = data.question.text;
-      hasVotes = Boolean(data.has_votes);
-
-      options = nextOptions.map(option => ({
-        text: option.text,
-        color: option.color,
-        heart: option.heart,
-        percentage: option.percentage
-      }));
-
-      renderResults();
-
-      if (changedQuestion) {
-        resetParticles();
+      if(
+        expectedQuestion &&
+        data.question.id!==expectedQuestion
+      ){
+        return;
       }
 
-    } catch (error) {
-      console.warn("Live Poll update:", error);
-    } finally {
-      loading = false;
+      if(
+        !Array.isArray(data.options) ||
+        data.options.length<2
+      ){
+        return;
+      }
+
+      const nextOptions=data.options.map(option=>({
+        id:option.id,
+        text:option.text,
+        color:option.color||"#FDCB4E",
+        heart:option.heart||"💛",
+        percentage:Number(option.percentage)||0
+      }));
+
+      const nextHasVotes=Boolean(data.has_votes);
+
+      const changedQuestion=
+        questionId!==data.question.id;
+
+      const nextSignature=JSON.stringify({
+        question:data.question,
+        options:nextOptions,
+        hasVotes:nextHasVotes
+      });
+
+      if(!changedQuestion &&
+         nextSignature===lastSignature){
+        return;
+      }
+
+      questionId=data.question.id;
+      title.textContent=data.question.text;
+      hasVotes=nextHasVotes;
+      options=nextOptions;
+      lastSignature=nextSignature;
+
+      // Percentages change immediately after API response.
+      renderResults();
+
+      if(changedQuestion || !particles.length){
+        resetParticles();
+      }else{
+        // Bubble colors transition quickly and smoothly.
+        scheduleColors();
+      }
+
+      if(!ready){
+        ready=true;
+        loadingBox.hidden=true;
+        tellParentReady();
+      }
+
+    }catch(error){
+      console.warn("Live Poll results:",error);
+    }finally{
+      fetching=false;
     }
   }
 
-  renderResults();
-  resize();
-  requestAnimationFrame(frame);
+  window.addEventListener("message",event=>{
+    if(event.origin!==location.origin) return;
 
-  if (typeof ResizeObserver !== "undefined") {
-    new ResizeObserver(() => resize()).observe(screen);
-  } else {
-    window.addEventListener("resize", resize);
+    if(event.data?.type==="SPORTUNI_POLL_ACTIVATE"){
+      // Refresh immediately when admin switches to Live.
+      loadResults();
+      if(ready) tellParentReady();
+    }
+  });
+
+  resize();
+
+  if(typeof ResizeObserver!=="undefined"){
+    new ResizeObserver(resize).observe(screen);
+  }else{
+    addEventListener("resize",resize);
   }
 
+  requestAnimationFrame(frame);
+
+  // Fetch on startup, even while the projector shows QR.
   loadResults();
-  setInterval(loadResults, 2000);
+
+  setInterval(loadResults,POLL_INTERVAL);
+
+  document.addEventListener("visibilitychange",()=>{
+    if(!document.hidden) loadResults();
+  });
+
 })();
 </script>
 </body>
