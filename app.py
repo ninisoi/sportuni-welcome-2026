@@ -887,10 +887,13 @@ def prepared_questions():
     created=db(
         'prepared_questions',
         method='POST',
-        body={
-            'question_text':text,
-            'sort_order':next_order
-        },
+        
+body={
+    'question_text': text,
+    'question_type': 'text',
+    'sort_order': next_order
+},
+
         prefer='return=representation'
     )
 
