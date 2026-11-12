@@ -1612,5 +1612,9 @@ def admin_student_session():
 # END STUDENT SESSION CONTROL
 # ============================================================
 
+# QR access protection for student sessions
+from qr_access import install_qr_access
+install_qr_access(app, setting, db, staff, json_input)
+
 if __name__=="__main__":
     app.run(debug=False,port=8000)
