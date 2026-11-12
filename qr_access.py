@@ -588,9 +588,14 @@ setInterval(async () => {
         ):
             return response
 
+        
+        # Allow safe modification of the HTML response.
+        response.direct_passthrough = False
+
         html = response.get_data(
             as_text=True
         )
+
 
         script = """
 <script>
