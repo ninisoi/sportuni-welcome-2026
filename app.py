@@ -848,18 +848,23 @@ def prepared_get(qid):
         raise ApiError('მომზადებული კითხვა ვერ მოიძებნა',404)
     return result
 
+
 def prepared_list():
+    # Only regular text questions belong here.
+    # Polls are managed through /api/admin/polls.
     return db(
         'prepared_questions',
         params={
-            'select':(
-                'id,question_text,sort_order,'
+            'question_type': 'eq.text',
+            'select': (
+                'id,question_text,question_type,sort_order,'
                 'last_published_at,created_at,updated_at'
             ),
-            'order':'sort_order.asc,created_at.asc',
-            'limit':'500'
+            'order': 'sort_order.asc,created_at.asc',
+            'limit': '500'
         }
     ) or []
+
 
 @app.route('/api/admin/prepared-questions',methods=['GET','POST'])
 def prepared_questions():
