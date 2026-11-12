@@ -932,65 +932,96 @@ def prepared_reorder():
         )
     return jsonify(ok=True)
 
-@app.route('/api/admin/prepared-questions/<qid>',methods=['PATCH','DELETE'])
+
+@app.route(
+    '/api/admin/prepared-questions/<qid>',
+    methods=['PATCH', 'DELETE']
+)
 def prepared_item(qid):
     staff('admin')
-    qid=prepared_id(qid)
-    prepared_get(qid)
+    qid = prepared_id(qid)
+    record = prepared_get(qid)
 
-    if request.method=='DELETE':
+    if record.get('question_type') != 'text':
+        raise ApiError(
+            'Poll-ის შესაცვლელად გამოიყენე Live Poll რედაქტორი',
+            400
+        )
+
+    if request.method == 'DELETE':
         db(
             'prepared_questions',
             method='DELETE',
-            params={'id':'eq.'+qid}
+            params={'id': 'eq.' + qid}
         )
         return jsonify(ok=True)
 
-    text=prepared_text(json_input().get('text'))
-
+    text = prepared_text(json_input().get('text'))
     db(
         'prepared_questions',
         method='PATCH',
-        params={'id':'eq.'+qid},
+        params={'id': 'eq.' + qid},
         body={
-            'question_text':text,
-            'updated_at':datetime.now(timezone.utc).isoformat()
+            'question_text': text,
+            'updated_at': datetime.now(
+                timezone.utc
+            ).isoformat()
         }
     )
     return jsonify(ok=True)
 
-@app.route('/api/admin/prepared-questions/<qid>/publish',methods=['POST'])
-def prepared_publish(qid):
-    uid,_=staff('admin')
-    qid=prepared_id(qid)
-    record=prepared_get(qid)
 
-    published=db(
+
+@app.route(
+    '/api/admin/prepared-questions/<qid>/publish',
+    methods=['POST']
+)
+def prepared_publish(qid):
+    uid, _ = staff('admin')
+    qid = prepared_id(qid)
+    record = prepared_get(qid)
+
+    if record.get('question_type') != 'text':
+        raise ApiError(
+            'Poll უნდა გამოქვეყნდეს Live Poll-ის ღილაკით',
+            400
+        )
+
+    published = db(
         'rpc/publish_sportuni_question',
         method='POST',
         body={
-            'p_text':record['question_text'],
-            'p_admin':uid
+            'p_text': record['question_text'],
+            'p_admin': uid
         }
     )
 
     try:
-        now=datetime.now(timezone.utc).isoformat()
+        now = datetime.now(
+            timezone.utc
+        ).isoformat()
+
         db(
             'prepared_questions',
             method='PATCH',
-            params={'id':'eq.'+qid},
+            params={'id': 'eq.' + qid},
             body={
-                'last_published_at':now,
-                'updated_at':now
+                'last_published_at': now,
+                'updated_at': now
             }
         )
+
     except ApiError:
         app.logger.warning(
-            'Prepared question published; usage timestamp update failed'
+            'Prepared question published; '
+            'usage timestamp update failed'
         )
 
-    return jsonify(ok=True,publication=published)
+    return jsonify(
+        ok=True,
+        publication=published
+    )
+
 
 # ============================================================
 # LIVE POLL — ADMIN API
