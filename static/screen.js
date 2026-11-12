@@ -1,14 +1,13 @@
 
-/* =========================================================
+/* ======================================================
    SPORTUNI WELCOME 2026
-   PROJECTOR CONTROLLER — STABLE SCREEN SWITCHING
+   FAST PROJECTOR CONTROLLER
 
-   - No automatic QR flash on page refresh
-   - Never displays the wrong question type
-   - Waits for the requested iframe to load
-   - Only admin controls QR / Live
-   - Existing Live Wall remains unchanged
-========================================================= */
+   QR stays controlled by admin.
+   Poll loads while QR is visible.
+   Poll appears only after real results are ready.
+   No default 3-heart screen or wrong Live Wall.
+====================================================== */
 
 (() => {
   "use strict";
@@ -19,184 +18,222 @@
     poll: document.getElementById("poll")
   };
 
-  let activeQuestionId = null;
-  let activeType = null;
-  let desiredScreen = null;
-  let loadedScreens = new Map();
+  let questionId = null;
+  let questionType = null;
+  let screenMode = "qr";
+  let desired = "qr";
+
   let busy = false;
-  let started = false;
+  let initialized = false;
 
-  // Hide all views until the backend tells us
-  // which screen should be displayed.
-  Object.values(frames).forEach(frame => {
-    frame.hidden = true;
-  });
+  const frameLoaded = {
+    qr: false,
+    wall: false,
+    poll: false
+  };
 
-  function targetName(screenMode, questionType) {
-    if (screenMode !== "wall") return "qr";
+  let readyPollId = null;
 
-    return questionType === "poll"
+  function urlFor(name,id){
+    const paths={
+      qr:"/qr-view",
+      wall:"/wall-view",
+      poll:"/poll-view"
+    };
+
+    return paths[name]+(
+      id ? "?q="+encodeURIComponent(id) : ""
+    );
+  }
+
+  function show(name){
+    for(const [key,frame] of Object.entries(frames)){
+      frame.hidden=key!==name;
+    }
+  }
+
+  function hideAll(){
+    for(const frame of Object.values(frames)){
+      frame.hidden=true;
+    }
+  }
+
+  function targetFor(mode,type){
+    if(mode!=="wall") return "qr";
+
+    return type==="poll"
       ? "poll"
       : "wall";
   }
 
-  function screenUrl(name, qid) {
-    const paths = {
-      qr: "/qr-view",
-      wall: "/wall-view",
-      poll: "/poll-view"
-    };
+  function prepare(name,id){
+    const frame=frames[name];
+    const nextUrl=urlFor(name,id);
 
-    return paths[name] +
-      (qid ? "?q=" + encodeURIComponent(qid) : "");
+    if(frame.getAttribute("src")!==nextUrl){
+      frameLoaded[name]=false;
+
+      if(name==="poll"){
+        readyPollId=null;
+      }
+
+      frame.src=nextUrl;
+    }
   }
 
-  function showOnly(name) {
-    Object.entries(frames).forEach(([key, frame]) => {
-      frame.hidden = key !== name;
-    });
-  }
+  function activate(){
+    desired=targetFor(screenMode,questionType);
 
-  function hideAll() {
-    Object.values(frames).forEach(frame => {
-      frame.hidden = true;
-    });
-  }
+    if(desired==="poll"){
+      const ready=
+        readyPollId===questionId;
 
-  function isCurrentTarget(name) {
-    return desiredScreen === name;
-  }
+      if(!ready){
+        hideAll();
 
-  Object.entries(frames).forEach(([name, frame]) => {
-    frame.addEventListener("load", () => {
-      const currentUrl = frame.getAttribute("src");
+        // Poll continues loading in the background.
+        return;
+      }
 
-      loadedScreens.set(name, currentUrl);
+      show("poll");
 
-      // An old request must never make a stale screen
-      // visible after the question has changed.
-      if (!isCurrentTarget(name)) return;
-
-      const expected = screenUrl(
-        name,
-        activeQuestionId
+      frames.poll.contentWindow?.postMessage(
+        {type:"SPORTUNI_POLL_ACTIVATE"},
+        location.origin
       );
 
-      if (currentUrl === expected) {
-        showOnly(name);
-      }
-    });
+      return;
+    }
+
+    if(frameLoaded[desired]){
+      show(desired);
+    }else{
+      hideAll();
+    }
+  }
+
+  // Poll readiness is sent by poll.html only after
+  // its first successful real-results response.
+  window.addEventListener("message",event=>{
+    if(event.origin!==location.origin) return;
+
+    if(
+      event.source!==frames.poll.contentWindow ||
+      event.data?.type!=="SPORTUNI_POLL_READY"
+    ){
+      return;
+    }
+
+    if(event.data.questionId!==questionId){
+      return;
+    }
+
+    readyPollId=event.data.questionId;
+    frameLoaded.poll=true;
+
+    if(desired==="poll"){
+      activate();
+    }
   });
 
-  function selectScreen(name, qid) {
-    desiredScreen = name;
-
-    const frame = frames[name];
-    const expectedUrl = screenUrl(name, qid);
-
-    if (!frame) return;
-
-    const previousUrl = frame.getAttribute("src");
-
-    if (previousUrl !== expectedUrl) {
-      loadedScreens.delete(name);
-      hideAll();
-      frame.setAttribute("src", expectedUrl);
-      return;
-    }
-
-    // The iframe already loaded the correct question.
-    if (loadedScreens.get(name) === expectedUrl) {
-      showOnly(name);
-      return;
-    }
-
-    // Don't show a previous view while loading.
-    hideAll();
-
-    // Handle an already-completed initial iframe.
-    try {
-      const documentState =
-        frame.contentDocument?.readyState;
-
-      if (documentState === "complete") {
-        loadedScreens.set(name, expectedUrl);
-        showOnly(name);
+  for(const [name,frame] of Object.entries(frames)){
+    frame.addEventListener("load",()=>{
+      if(name==="poll"){
+        // iframe load is not enough: wait for
+        // real Poll data from poll.html.
+        return;
       }
-    } catch (error) {
-      // Keep the screen hidden until load event.
+
+      const expected=urlFor(name,questionId);
+
+      if(frame.getAttribute("src")===expected){
+        frameLoaded[name]=true;
+
+        if(desired===name){
+          show(name);
+        }
+      }
+    });
+  }
+
+  async function tick(){
+    if(busy) return;
+    busy=true;
+
+    try{
+      const response=await fetch(
+        "/api/public",
+        {
+          cache:"no-store",
+          credentials:"same-origin"
+        }
+      );
+
+      if(!response.ok){
+        throw new Error("Projector status error");
+      }
+
+      const data=await response.json();
+
+      const nextId=data.question?.id||null;
+
+      const nextType=data.question_type==="poll"
+        ? "poll"
+        : "text";
+
+      const nextMode=data.screen==="wall"
+        ? "wall"
+        : "qr";
+
+      const changed=
+        !initialized ||
+        nextId!==questionId ||
+        nextType!==questionType ||
+        nextMode!==screenMode;
+
+      if(!changed) return;
+
+      const questionChanged=
+        nextId!==questionId ||
+        nextType!==questionType;
+
+      questionId=nextId;
+      questionType=nextType;
+      screenMode=nextMode;
+      initialized=true;
+
+      desired=targetFor(screenMode,questionType);
+
+      if(questionChanged){
+        hideAll();
+
+        // QR is prepared for every question.
+        prepare("qr",questionId);
+
+        // Prepare only the relevant live screen.
+        if(questionType==="poll"){
+          prepare("poll",questionId);
+        }else{
+          prepare("wall",questionId);
+        }
+      }
+
+      activate();
+
+    }catch(error){
+      console.warn("Projector status:",error);
+    }finally{
+      busy=false;
     }
   }
 
-  async function tick() {
-    if (busy) return;
-    busy = true;
-
-    try {
-      const response = await fetch("/api/public", {
-        method: "GET",
-        cache: "no-store",
-        credentials: "same-origin"
-      });
-
-      if (!response.ok) {
-        throw new Error("Projector API unavailable");
-      }
-
-      const data = await response.json();
-
-      const nextId = data.question?.id || null;
-      const nextType =
-        data.question_type === "poll"
-          ? "poll"
-          : "text";
-
-      const nextScreen = targetName(
-        data.screen,
-        nextType
-      );
-
-      const questionChanged =
-        activeQuestionId !== nextId ||
-        activeType !== nextType;
-
-      const screenChanged =
-        desiredScreen !== nextScreen;
-
-      activeQuestionId = nextId;
-      activeType = nextType;
-
-      if (
-        !started ||
-        questionChanged ||
-        screenChanged
-      ) {
-        started = true;
-        selectScreen(nextScreen, nextId);
-      }
-
-      // Deliberately do not reload the iframe on
-      // every poll. This preserves animations.
-
-    } catch (error) {
-      console.warn(
-        "SPORTUNI projector:",
-        error
-      );
-
-      // Keep any correctly loaded screen visible.
-    } finally {
-      busy = false;
-    }
-  }
+  hideAll();
 
   tick();
-  setInterval(tick, 1000);
+  setInterval(tick,800);
 
-  document.addEventListener(
-    "visibilitychange",
-    () => {
-      if (!document.hidden) tick();
-    }
-  );
+  document.addEventListener("visibilitychange",()=>{
+    if(!document.hidden) tick();
+  });
+
 })();
