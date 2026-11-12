@@ -323,6 +323,11 @@ setInterval(async () => {
 
         path = request.path
 
+        # Admin session changes are handled by app.py.
+        # QR protection must not intercept this endpoint.
+        if path == "/api/admin/student-session":
+            return None
+
         protected = (
             "/join",
             "/confirmation",
