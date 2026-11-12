@@ -861,57 +861,190 @@ def export():
     )
 
 
+
+# ============================================================
+# SPORTUNI WELCOME 2026
+# EXPORT ONE QUESTION — TEXT OR LIVE POLL
+# ============================================================
+
 @app.route('/api/admin/questions/<qid>/export.csv')
 def export_question(qid):
     staff('admin')
+
     try:
-        uuid.UUID(qid)
-    except (ValueError, AttributeError):
+        qid = str(uuid.UUID(str(qid)))
+    except (ValueError, TypeError, AttributeError):
         raise ApiError('კითხვის ID არასწორია')
 
-    q=one('questions',id=qid)
+    q = one('questions', id=qid)
+
     if not q:
-        raise ApiError('კითხვა ვერ მოიძებნა',404)
+        raise ApiError('კითხვა ვერ მოიძებნა', 404)
 
-    rows=db(
-        'answers',
-        params={
-            'question_id':'eq.'+qid,
-            'select':'answer_text,status,created_at',
-            'order':'created_at.asc',
-            'limit':'10000'
-        }
-    ) or []
+    def safe(value):
+        if value is None:
+            return ''
 
-    stream=io.StringIO()
+        value = str(value)
+
+        if value.lstrip().startswith(
+            ('=', '+', '-', '@', '\t', '\r')
+        ):
+            return "'" + value
+
+        return value
+
+    def read_rows(table, columns):
+        output = []
+        offset = 0
+        limit = 1000
+        maximum = 50000
+
+        while offset < maximum:
+            rows = db(
+                table,
+                params={
+                    'question_id': 'eq.' + qid,
+                    'select': columns,
+                    'limit': str(limit),
+                    'offset': str(offset)
+                }
+            ) or []
+
+            output.extend(rows)
+
+            if len(rows) < limit:
+                return output
+
+            offset += len(rows)
+
+        raise ApiError(
+            'ექსპორტის მოცულობა ზედმეტად დიდია',
+            400
+        )
+
+    stream = io.StringIO()
     stream.write('\ufeff')
-    writer=csv.writer(stream)
+
+    writer = csv.writer(stream)
+
     writer.writerow([
-        'კითხვა №','კითხვა','პასუხი','სტატუსი','დრო'
+        'კითხვა №',
+        'კითხვა',
+        'პასუხი',
+        'სტატუსი',
+        'დრო'
     ])
 
-    for answer in rows:
-        value=answer['answer_text']
-        if value and value.lstrip()[:1] in ('=','+','-','@'):
-            value="'"+value
+    exported = 0
+
+    if q.get('question_type') == 'poll':
+
+        options = read_rows(
+            'poll_options',
+            'id,option_text,color_key'
+        )
+
+        option_map = {
+            row['id']: row
+            for row in options
+        }
+
+        palette_rows = db(
+            'poll_palette',
+            params={
+                'select': 'color_key,heart',
+                'limit': '100'
+            }
+        ) or []
+
+        heart_map = {
+            row['color_key']: row['heart']
+            for row in palette_rows
+        }
+
+        votes = read_rows(
+            'poll_votes',
+            'option_id'
+        )
+
+        for vote in votes:
+            option = option_map.get(
+                vote.get('option_id')
+            )
+
+            if not option:
+                continue
+
+            heart = heart_map.get(
+                option.get('color_key'),
+                '♡'
+            )
+
+            text = option.get(
+                'option_text', ''
+            )
+
+            answer = (
+                str(heart) + ' ' + str(text)
+            ).strip()
+
+            writer.writerow([
+                q.get('question_number', ''),
+                safe(q.get('text', '')),
+                safe(answer),
+                'მიღებულია',
+                ''
+            ])
+
+            exported += 1
+
+    else:
+
+        answers = read_rows(
+            'answers',
+            'answer_text,status,created_at'
+        )
+
+        for answer in answers:
+            writer.writerow([
+                q.get('question_number', ''),
+                safe(q.get('text', '')),
+                safe(answer.get('answer_text')),
+                safe(answer.get('status')),
+                safe(answer.get('created_at'))
+            ])
+
+            exported += 1
+
+    # A new question with no responses
+    # still appears in the exported CSV.
+    if exported == 0:
         writer.writerow([
-            q['question_number'],
-            q['text'],
-            value,
-            answer['status'],
-            answer['created_at']
+            q.get('question_number', ''),
+            safe(q.get('text', '')),
+            '',
+            'პასუხები ჯერ არ არის',
+            ''
         ])
 
-    filename=f"SPORTUNI_question_{q['question_number']}_answers.csv"
+    filename = (
+        'SPORTUNI_question_'
+        + str(q.get('question_number', ''))
+        + '_answers.csv'
+    )
 
     return Response(
         stream.getvalue(),
         mimetype='text/csv; charset=utf-8',
         headers={
             'Content-Disposition':
-                f'attachment; filename="{filename}"'
+                'attachment; filename="'
+                + filename + '"',
+            'Cache-Control': 'no-store'
         }
     )
+
 
 # ============================================================
 # DELETE QUESTIONS
