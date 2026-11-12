@@ -1543,5 +1543,74 @@ def latest_published_poll_layout():
 # END LATEST POLL LAYOUT
 # ============================================================
 
+# ============================================================
+# SPORTUNI WELCOME 2026
+# ADMIN — STUDENT SESSION CONTROL
+# ============================================================
+
+@app.route('/api/admin/student-session', methods=['GET', 'POST'])
+def admin_student_session():
+    staff('admin')
+
+    if request.method == 'GET':
+        s = setting()
+
+        if not s:
+            raise ApiError(
+                'ღონისძიების პარამეტრები ვერ მოიძებნა',
+                503
+            )
+
+        return jsonify(
+            ok=True,
+            closed=bool(
+                s.get('student_session_closed', False)
+            ),
+            intake=bool(s.get('intake_enabled', False))
+        )
+
+    payload = json_input()
+    closed = payload.get('closed')
+
+    if type(closed) is not bool:
+        raise ApiError(
+            'სესიის სტატუსი არასწორია',
+            400
+        )
+
+    # Only the main administrator can perform
+    # this action. Keep existing questions and
+    # recorded answers unchanged.
+    db(
+        'event_settings',
+        method='PATCH',
+        params={'id': 'eq.1'},
+        body={
+            'student_session_closed': closed,
+            'intake_enabled': not closed
+        },
+        prefer='return=minimal'
+    )
+
+    s = setting()
+
+    if not s:
+        raise ApiError(
+            'სესიის სტატუსი ვერ გადამოწმდა',
+            503
+        )
+
+    return jsonify(
+        ok=True,
+        closed=bool(
+            s.get('student_session_closed', False)
+        ),
+        intake=bool(s.get('intake_enabled', False))
+    )
+
+# ============================================================
+# END STUDENT SESSION CONTROL
+# ============================================================
+
 if __name__=="__main__":
     app.run(debug=False,port=8000)
