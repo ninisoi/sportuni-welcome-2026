@@ -153,7 +153,7 @@
         align-items: stretch;
         gap: 10px;
         flex-wrap: wrap;
-        margin-top: auto;
+        margin-top: 8px;
       }
 
       #suTextQuestionCard .su-text-actions button {
