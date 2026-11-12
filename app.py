@@ -1493,5 +1493,55 @@ def screen_poll_results():
 # APPLICATION START
 # ============================================================
 
+# ============================================================
+# SPORTUNI WELCOME 2026
+# LATEST PUBLISHED POLL LAYOUT — ADMIN ONLY
+# ============================================================
+
+@app.route('/api/admin/polls/latest-layout', methods=['GET'])
+def latest_published_poll_layout():
+    staff('admin')
+
+    polls = db(
+        'questions',
+        params={
+            'question_type': 'eq.poll',
+            'select': 'id,text,created_at',
+            'order': 'created_at.desc',
+            'limit': '1'
+        }
+    ) or []
+
+    if not polls:
+        return jsonify(ok=True, options=[])
+
+    latest = polls[0]
+
+    rows = db(
+        'poll_options',
+        params={
+            'question_id': 'eq.' + latest['id'],
+            'select': 'option_text,color_key,sort_order',
+            'order': 'sort_order.asc',
+            'limit': '12'
+        }
+    ) or []
+
+    return jsonify(
+        ok=True,
+        question=latest['text'],
+        options=[
+            {
+                'text': row['option_text'],
+                'color_key': row['color_key']
+            }
+            for row in rows
+        ]
+    )
+
+# ============================================================
+# END LATEST POLL LAYOUT
+# ============================================================
+
 if __name__=="__main__":
     app.run(debug=False,port=8000)
