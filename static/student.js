@@ -1,7 +1,7 @@
 
 /* ======================================================
    SPORTUNI WELCOME 2026
-   STEP 14 — STUDENT TEXT + POLL
+   STUDENT PAGE — TEXT QUESTIONS + LIVE POLL
 ====================================================== */
 
 (() => {
@@ -15,43 +15,62 @@
   const error = $("answerError");
   const form = $("answerForm");
 
+  const textArea = $("textInputArea");
   const pollArea = $("pollInputArea");
   const pollOptions = $("pollOptions");
   const pollError = $("pollError");
 
   const formCard = $("formCard");
   const submittedState = $("submittedState");
-  const prompt = document.querySelector(".card .prompt");
-  const textMeta = document.querySelector(".form-meta");
-  const emojiRow = document.querySelector(".emoji-row");
-  const textNote = document.querySelector(".card .note");
+  const submittedTitle = $("submittedTitle");
+  const submittedMessage = $("submittedMessage");
+
+  const question = $("question");
+  const prompt = $("answerPrompt");
+
+  const previewOverlay = $("previewOverlay");
+  const previewText = $("previewText");
+  const previewEdit = $("previewEdit");
+  const previewConfirm = $("previewConfirm");
 
   let qid = null;
   let type = null;
   let selectedOption = null;
-  let submitting = false;
+  let selectedText = "";
+
   let intake = false;
-  let pollAnswered = false;
+  let answered = false;
+  let closed = false;
+
+  let submitting = false;
   let checking = false;
+  let previewQuestionId = null;
 
   const LIMIT = 100;
 
-  const segmenter = Intl.Segmenter
+  const segmenter = typeof Intl.Segmenter === "function"
     ? new Intl.Segmenter("ka", {
         granularity: "grapheme"
       })
     : null;
 
-  const chars = value =>
-    segmenter
-      ? [...segmenter.segment(value)].map(x => x.segment)
-      : [...value];
+  function chars(value) {
+    if (segmenter) {
+      return [
+        ...segmenter.segment(value)
+      ].map(item => item.segment);
+    }
 
-  const draftKey = id => "su_draft_" + id;
+    return Array.from(value);
+  }
 
-  /* ------------------------------
-     TEXT INPUT
-  ------------------------------ */
+  function draftKey(id) {
+    return "su_draft_" + id;
+  }
+
+  function submissionKey(id) {
+    return "su_submission_" + id;
+  }
 
   function textError(message) {
     field.classList.add("field-error");
@@ -63,6 +82,7 @@
   function clearTextError() {
     field.classList.remove("field-error");
     field.removeAttribute("aria-invalid");
+    error.textContent = "";
     error.classList.remove("show");
   }
 
@@ -74,8 +94,7 @@
     }
 
     const amount = chars(field.value).length;
-
-    counter.textContent = amount + " / 100";
+    counter.textContent = amount + " / " + LIMIT;
     counter.classList.toggle("warn", amount >= 90);
 
     if (field.value.trim()) {
@@ -85,43 +104,48 @@
     if (qid && type === "text") {
       localStorage.setItem(draftKey(qid), field.value);
     }
+
+    updateButtons();
   }
 
   field.addEventListener("input", updateText);
 
-  document.querySelectorAll("[data-emoji]").forEach(btn => {
-    btn.addEventListener("click", () => {
-      if (field.disabled || type !== "text") return;
+  document.querySelectorAll("[data-emoji]")
+    .forEach(button => {
+      button.addEventListener("click", () => {
+        if (type !== "text" || field.disabled) {
+          return;
+        }
 
-      const start = field.selectionStart;
-      const end = field.selectionEnd;
-      const emoji = btn.dataset.emoji;
+        const start = field.selectionStart;
+        const end = field.selectionEnd;
+        const emoji = button.dataset.emoji;
 
-      const result =
-        field.value.slice(0, start) +
-        emoji +
-        field.value.slice(end);
+        const result =
+          field.value.slice(0, start) +
+          emoji +
+          field.value.slice(end);
 
-      if (chars(result).length > LIMIT) return;
+        if (chars(result).length > LIMIT) {
+          return;
+        }
 
-      field.value = result;
-      updateText();
-      field.focus();
+        field.value = result;
+        updateText();
+        field.focus();
 
-      const cursor = start + emoji.length;
-      field.setSelectionRange(cursor, cursor);
+        const cursor = start + emoji.length;
+        field.setSelectionRange(cursor, cursor);
+      });
     });
-  });
 
-  /* ------------------------------
-     POLL OPTIONS
-  ------------------------------ */
-
-  function renderPollOptions(options) {
+  function renderOptions(options) {
     pollOptions.replaceChildren();
-    selectedOption = null;
 
-    options.forEach(option => {
+    selectedOption = null;
+    selectedText = "";
+
+    for (const option of options) {
       const button = document.createElement("button");
 
       button.type = "button";
@@ -131,7 +155,7 @@
 
       const heart = document.createElement("span");
       heart.className = "poll-heart";
-      heart.style.background =
+      heart.style.backgroundColor =
         option.color || "#FDCB4E";
       heart.textContent = option.heart || "💛";
 
@@ -146,9 +170,19 @@
       button.append(heart, label, indicator);
 
       button.addEventListener("click", () => {
-        if (!intake || submitting || pollAnswered) return;
+        if (
+          type !== "poll" ||
+          !intake ||
+          answered ||
+          submitting ||
+          closed
+        ) {
+          return;
+        }
 
         selectedOption = option.id;
+        selectedText = option.text;
+
         pollError.textContent = "";
 
         pollOptions.querySelectorAll(".poll-option")
@@ -161,212 +195,287 @@
             );
           });
 
-        updateSendButton();
+        updateButtons();
       });
 
       pollOptions.appendChild(button);
-    });
-  }
-
-  /* ------------------------------
-     QUESTION TYPE
-  ------------------------------ */
-
-  function showQuestionType(nextType) {
-    const isPoll = nextType === "poll";
-
-    pollArea.hidden = !isPoll;
-
-    field.hidden = isPoll;
-    error.hidden = isPoll;
-
-    if (textMeta) textMeta.hidden = isPoll;
-    if (emojiRow) emojiRow.hidden = isPoll;
-    if (textNote) textNote.hidden = isPoll;
-
-    if (prompt) {
-      prompt.textContent = isPoll
-        ? "აირჩიე ერთი პასუხი და დაადასტურე შენი არჩევანი."
-        : "დაწერე ის, რასაც ფიქრობ — მოკლედ, გულწრფელად და შენი სიტყვებით.";
     }
 
+    updateButtons();
+  }
+
+  function changeType(nextType) {
+    type = nextType;
+
+    const isPoll = type === "poll";
+
+    textArea.hidden = isPoll;
+    pollArea.hidden = !isPoll;
+
+    prompt.textContent = isPoll
+      ? "აირჩიე ერთი პასუხი. გაგზავნამდე შეგიძლია არჩევანი შეცვალო."
+      : "დაწერე ის, რასაც ფიქრობ — მოკლედ, გულწრფელად და შენი სიტყვებით.";
+
     send.textContent = isPoll
-      ? "ხმის მიცემა  ↗"
-      : "გაგზავნა  ↗";
+      ? "ხმის მიცემა ↗"
+      : "გაგზავნა ↗";
+
+    updateButtons();
+  }
+
+  function showForm() {
+    if (closed) return;
+
+    formCard.hidden = false;
+    submittedState.hidden = true;
   }
 
   function showSubmitted() {
     formCard.hidden = true;
     submittedState.hidden = false;
 
-    submittedState.querySelector("h3").textContent =
+    submittedTitle.textContent =
       "შენი პასუხი უკვე მიღებულია!";
 
-    submittedState.querySelector("p").textContent =
+    submittedMessage.textContent =
       "მადლობა მონაწილეობისთვის! დაელოდე შემდეგ კითხვას.";
+
+    closePreview();
   }
 
-  function showForm() {
-    formCard.hidden = false;
-    submittedState.hidden = true;
+  function showClosed() {
+    closed = true;
+    intake = false;
+
+    formCard.hidden = true;
+    submittedState.hidden = false;
+
+    submittedTitle.textContent =
+      "მადლობა მონაწილეობისთვის!";
+
+    submittedMessage.textContent =
+      "SPORTUNI WELCOME 2026 დასრულებულია.";
+
+    closePreview();
+    updateButtons();
   }
 
-  function updateSendButton() {
+  function updateButtons() {
+    const disabled =
+      submitting ||
+      checking ||
+      answered ||
+      closed ||
+      !intake ||
+      !qid;
+
+    field.disabled = disabled || type !== "text";
+
     send.disabled =
-      submitting ||
-      !intake ||
-      (type === "poll" && !selectedOption) ||
-      pollAnswered;
-
-    field.disabled =
-      submitting ||
-      !intake ||
-      type !== "text";
+      disabled ||
+      (type === "poll" && !selectedOption);
 
     pollOptions.querySelectorAll("button")
       .forEach(button => {
-        button.disabled =
-          submitting || !intake || pollAnswered;
+        button.disabled = disabled;
       });
   }
 
-  /* ------------------------------
-     SERVER
-  ------------------------------ */
+  function openPreview() {
+    if (!qid || answered || closed || !intake) {
+      return;
+    }
+
+    if (type === "text") {
+      const value = field.value.trim();
+
+      if (!value) {
+        textError(
+          "ველი ცარიელია — ჩაწერე შენი პასუხი."
+        );
+        field.focus();
+        return;
+      }
+
+      previewText.textContent = value;
+
+    } else if (type === "poll") {
+      if (!selectedOption) {
+        pollError.textContent =
+          "აირჩიე ერთი პასუხის ვარიანტი.";
+        return;
+      }
+
+      previewText.textContent = selectedText;
+
+    } else {
+      return;
+    }
+
+    previewQuestionId = qid;
+    previewOverlay.hidden = false;
+    previewConfirm.disabled = false;
+    previewEdit.focus();
+  }
+
+  function closePreview() {
+    previewOverlay.hidden = true;
+    previewQuestionId = null;
+  }
+
+  previewEdit.addEventListener("click", closePreview);
+
+  previewOverlay.addEventListener("click", event => {
+    if (event.target === previewOverlay) {
+      closePreview();
+    }
+  });
+
+  document.addEventListener("keydown", event => {
+    if (
+      event.key === "Escape" &&
+      !previewOverlay.hidden &&
+      !submitting
+    ) {
+      closePreview();
+    }
+  });
 
   async function requestJson(url, options = {}) {
     const response = await fetch(url, {
       cache: "no-store",
+      credentials: "same-origin",
       ...options
     });
 
     const data = await response.json();
 
     if (!response.ok) {
-      const e = new Error(
+      const exception = new Error(
         data.detail || "სერვერთან კავშირი ვერ დამყარდა."
       );
-      e.reason = data.reason || "";
-      throw e;
+
+      exception.reason = data.reason || "";
+      throw exception;
     }
 
     return data;
   }
 
-  /* ------------------------------
-     QUESTION POLLING
-  ------------------------------ */
-
   async function tick() {
     if (checking || submitting) return;
+
     checking = true;
 
     try {
-      const state = await requestJson("/api/student/poll");
+      const state = await requestJson(
+        "/api/student/poll"
+      );
 
       if (state.session_closed) {
-        // The final thank-you page will be added
-        // with the event-close feature.
-        formCard.hidden = true;
-        submittedState.hidden = false;
-
-        submittedState.querySelector("h3").textContent =
-          "მადლობა მონაწილეობისთვის!";
-
-        submittedState.querySelector("p").textContent =
-          "SPORTUNI WELCOME 2026 დასრულებულია.";
-
-        qid = null;
-        type = null;
+        showClosed();
         return;
       }
 
+      // Do not reopen a finished session on this device.
+      if (closed) return;
+
       if (!state.question?.id) {
         qid = null;
-        type = null;
-        $("question").textContent =
+        answered = false;
+        question.textContent =
           "კითხვა ჯერ არ გამოქვეყნებულა";
 
-        send.disabled = true;
-        field.disabled = true;
+        intake = false;
+        showForm();
         return;
       }
 
       const nextId = state.question.id;
       const nextType =
-        state.question_type === "poll" ? "poll" : "text";
+        state.question_type === "poll"
+          ? "poll"
+          : "text";
 
       const changed =
-        qid !== nextId || type !== nextType;
+        qid !== nextId ||
+        type !== nextType;
 
       if (changed) {
+        closePreview();
+
         qid = nextId;
-        type = nextType;
-        pollAnswered = false;
+        answered = false;
         selectedOption = null;
+        selectedText = "";
 
-        $("question").textContent = state.question.text;
+        question.textContent =
+          state.question.text;
 
-        showQuestionType(type);
+        changeType(nextType);
         showForm();
 
-        if (type === "poll") {
+        if (nextType === "poll") {
           field.value = "";
           clearTextError();
 
-          renderPollOptions(state.options || []);
+          renderOptions(state.options || []);
 
+          pollError.textContent = "";
         } else {
+          pollOptions.replaceChildren();
+          pollError.textContent = "";
+
           field.value =
             localStorage.getItem(draftKey(qid)) || "";
 
           updateText();
-          pollError.textContent = "";
         }
       }
 
       intake = Boolean(state.intake);
 
       if (type === "poll") {
-        pollAnswered = Boolean(state.answered);
+        answered = Boolean(state.answered);
 
-        if (pollAnswered) {
+        if (answered) {
           showSubmitted();
           return;
         }
 
         if (!intake) {
           pollError.textContent =
-            "ამ ეტაპზე პასუხების მიღება შეჩერებულია.";
+            "პასუხების მიღება ამ ეტაპზე შეჩერებულია.";
         } else if (!selectedOption) {
           pollError.textContent = "";
         }
 
       } else {
-        // Keep the original text-answer confirmation flow.
         const textState = await requestJson(
           "/api/student/status"
         );
 
-        if (textState.question?.id !== qid) return;
+        if (textState.question?.id !== qid) {
+          return;
+        }
 
-        if (textState.answered) {
-          location.replace("/confirmation");
+        answered = Boolean(textState.answered);
+
+        if (answered) {
+          showSubmitted();
           return;
         }
 
         if (!intake) {
           textError(
-            "ამ ეტაპზე პასუხების მიღება შეჩერებულია."
+            "პასუხების მიღება ამ ეტაპზე შეჩერებულია."
           );
         } else if (field.value.trim()) {
           clearTextError();
         }
       }
 
-      updateSendButton();
-
-    } catch (e) {
+    } catch (exception) {
       if (type === "poll") {
         pollError.textContent =
           "კავშირი ვერ დამყარდა. სცადე ხელახლა.";
@@ -375,33 +484,43 @@
           "სერვერთან კავშირი ვერ დამყარდა. სცადე ხელახლა."
         );
       }
+
     } finally {
       checking = false;
+      updateButtons();
     }
   }
 
-  /* ------------------------------
-     SUBMISSION
-  ------------------------------ */
-
-  form.addEventListener("submit", async event => {
+  form.addEventListener("submit", event => {
     event.preventDefault();
+    openPreview();
+  });
 
-    if (submitting || !qid || !intake) return;
+  previewConfirm.addEventListener("click", async () => {
+    if (
+      submitting ||
+      checking ||
+      !qid ||
+      previewQuestionId !== qid ||
+      !intake ||
+      answered ||
+      closed
+    ) {
+      closePreview();
+      return;
+    }
 
     const sendingQid = qid;
+    const sendingType = type;
+    const sendingOption = selectedOption;
+    const sendingText = field.value.trim();
 
-    if (type === "poll") {
-      if (!selectedOption) {
-        pollError.textContent =
-          "აირჩიე ერთი პასუხის ვარიანტი.";
-        return;
-      }
+    submitting = true;
+    previewConfirm.disabled = true;
+    updateButtons();
 
-      submitting = true;
-      updateSendButton();
-
-      try {
+    try {
+      if (sendingType === "poll") {
         const result = await requestJson(
           "/api/student/poll/vote",
           {
@@ -411,92 +530,93 @@
             },
             body: JSON.stringify({
               qid: sendingQid,
-              option_id: selectedOption
+              option_id: sendingOption
             })
           }
         );
 
         if (result.ok) {
-          pollAnswered = true;
+          answered = true;
           showSubmitted();
         }
-      } catch (e) {
-        pollError.textContent =
-          e.message || "ხმის მიცემა ვერ შესრულდა.";
 
-        if (
-          e.reason === "question_changed" ||
-          e.reason === "session_closed"
-        ) {
-          await tick();
+      } else {
+        const key = submissionKey(sendingQid);
+
+        let submissionId =
+          localStorage.getItem(key);
+
+        if (!submissionId) {
+          submissionId = crypto.randomUUID();
+          localStorage.setItem(key, submissionId);
         }
-      } finally {
+
+        await requestJson(
+          "/api/student/submit",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              qid: sendingQid,
+              text: sendingText,
+              submission_id: submissionId
+            })
+          }
+        );
+
+        localStorage.removeItem(
+          draftKey(sendingQid)
+        );
+
+        answered = true;
+        showSubmitted();
+      }
+
+    } catch (exception) {
+      closePreview();
+
+      if (sendingType === "poll") {
+        pollError.textContent =
+          exception.message ||
+          "ხმის მიცემა ვერ შესრულდა.";
+      } else {
+        textError(
+          exception.message ||
+          "პასუხის გაგზავნა ვერ შესრულდა."
+        );
+      }
+
+      if (
+        exception.reason === "session_closed" ||
+        exception.reason === "question_changed"
+      ) {
+        // Refresh after the current request finishes.
         submitting = false;
-        updateSendButton();
+        await tick();
+        return;
       }
 
-      return;
-    }
-
-    /* ORIGINAL TEXT QUESTION */
-
-    const text = field.value.trim();
-
-    if (!text) {
-      textError(
-        "ველი ცარიელია — ჩაწერე შენი პასუხი."
-      );
-      field.focus();
-      return;
-    }
-
-    submitting = true;
-    updateSendButton();
-
-    try {
-      const key = "su_submission_" + sendingQid;
-
-      let submissionId = localStorage.getItem(key);
-
-      if (!submissionId) {
-        submissionId = crypto.randomUUID();
-        localStorage.setItem(key, submissionId);
-      }
-
-      await requestJson("/api/student/submit", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          qid: sendingQid,
-          text,
-          submission_id: submissionId
-        })
-      });
-
-      localStorage.removeItem(draftKey(sendingQid));
-      location.href = "/confirmation";
-
-    } catch (e) {
-      textError(
-        e.message ||
-        "პასუხი ვერ გაიგზავნა. სცადე ხელახლა."
-      );
     } finally {
       submitting = false;
-      updateSendButton();
+      updateButtons();
     }
   });
 
-  /* ------------------------------
-     START
-  ------------------------------ */
-
-  send.disabled = true;
+  // Check immediately and periodically.
   field.disabled = true;
+  send.disabled = true;
 
   tick();
   setInterval(tick, 6500);
+
+  // Refresh when returning to this browser tab.
+  document.addEventListener(
+    "visibilitychange",
+    () => {
+      if (!document.hidden) tick();
+    }
+  );
 
 })();
