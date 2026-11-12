@@ -1548,6 +1548,13 @@ def latest_published_poll_layout():
 # ADMIN — STUDENT SESSION CONTROL
 # ============================================================
 
+
+# ============================================================
+# SPORTUNI WELCOME 2026
+# ADMIN STUDENT SESSION CONTROL
+# CLOSE / REOPEN / ROTATE QR
+# ============================================================
+
 @app.route('/api/admin/student-session', methods=['GET', 'POST'])
 def admin_student_session():
     staff('admin')
@@ -1557,7 +1564,7 @@ def admin_student_session():
 
         if not s:
             raise ApiError(
-                'ღონისძიების პარამეტრები ვერ მოიძებნა',
+                'სესიის პარამეტრები ვერ მოიძებნა',
                 503
             )
 
@@ -1566,7 +1573,9 @@ def admin_student_session():
             closed=bool(
                 s.get('student_session_closed', False)
             ),
-            intake=bool(s.get('intake_enabled', False))
+            intake=bool(
+                s.get('intake_enabled', False)
+            )
         )
 
     payload = json_input()
@@ -1578,39 +1587,64 @@ def admin_student_session():
             400
         )
 
-    # Only the main administrator can perform
-    # this action. Keep existing questions and
-    # recorded answers unchanged.
-    db(
-        'event_settings',
-        method='PATCH',
-        params={'id': 'eq.1'},
-        body={
-            'student_session_closed': closed,
-            'intake_enabled': not closed
-        },
-        prefer='return=minimal'
-    )
-
     s = setting()
 
     if not s:
         raise ApiError(
-            'სესიის სტატუსი ვერ გადამოწმდა',
+            'სესიის პარამეტრები ვერ მოიძებნა',
+            503
+        )
+
+    values = {
+        'student_session_closed': closed,
+        'intake_enabled': not closed
+    }
+
+    # When closing, invalidate all previously
+    # issued QR links and student access cookies.
+    if closed and not s.get('student_session_closed', False):
+        values['qr_access_generation'] = str(uuid.uuid4())
+
+    # Reopening does NOT restore old QR access.
+    rows = db(
+        'event_settings',
+        method='PATCH',
+        params={
+            'id': 'eq.1',
+            'select': (
+                'student_session_closed,'
+                'intake_enabled,'
+                'qr_access_generation'
+            )
+        },
+        body=values,
+        prefer='return=representation'
+    )
+
+    if not rows:
+        raise ApiError(
+            'სესიის მდგომარეობა ვერ დადასტურდა',
+            503
+        )
+
+    updated = rows[0]
+
+    if bool(updated['student_session_closed']) != closed:
+        raise ApiError(
+            'სესიის სტატუსი ვერ დადასტურდა',
             503
         )
 
     return jsonify(
         ok=True,
-        closed=bool(
-            s.get('student_session_closed', False)
-        ),
-        intake=bool(s.get('intake_enabled', False))
+        closed=bool(updated['student_session_closed']),
+        intake=bool(updated['intake_enabled'])
     )
 
 # ============================================================
 # END STUDENT SESSION CONTROL
 # ============================================================
+
 
 # QR access protection for student sessions
 from qr_access import install_qr_access
