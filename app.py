@@ -628,50 +628,238 @@ def review(aid):
 # CSV EXPORT
 # ============================================================
 
+
+# ============================================================
+# SPORTUNI WELCOME 2026
+# UNIFIED CSV EXPORT — TEXT + POLL
+# Poll answers: heart emoji + full option text
+# ============================================================
+
 @app.route('/api/admin/export.csv')
 def export():
     staff('admin')
-    questions=db(
+
+    def safe_csv(value):
+        if value is None:
+            return ''
+
+        value = str(value)
+
+        # Protect Excel from formula injection.
+        if value.lstrip().startswith(
+            ('=', '+', '-', '@', '\t', '\r')
+        ):
+            return "'" + value
+
+        return value
+
+    def get_all(table, params, max_rows=50000):
+        results = []
+        offset = 0
+        page_size = 1000
+
+        while offset < max_rows:
+            query = dict(params)
+            query['limit'] = str(page_size)
+            query['offset'] = str(offset)
+
+            batch = db(table, params=query) or []
+
+            results.extend(batch)
+
+            if len(batch) < page_size:
+                return results
+
+            offset += page_size
+
+        raise ApiError(
+            'ექსპორტის მოცულობა ზედმეტად დიდია. '
+            'ფაილი არასრული სახით არ ჩამოიტვირთება.',
+            400
+        )
+
+    # ------------------------------------------
+    # ALL PUBLISHED QUESTIONS
+    # ------------------------------------------
+
+    questions = get_all(
         'questions',
-        params={
-            'select':'id,question_number,text',
-            'limit':'500'
+        {
+            'select': (
+                'id,question_number,text,'
+                'question_type'
+            ),
+            'order': 'question_number.asc'
         }
-    ) or []
-    qs={r['id']:r for r in questions}
-    answers=db(
+    )
+
+    question_map = {
+        row['id']: row
+        for row in questions
+    }
+
+    # ------------------------------------------
+    # ORIGINAL TEXT ANSWERS
+    # ------------------------------------------
+
+    answers = get_all(
         'answers',
+        {
+            'select': (
+                'question_id,answer_text,'
+                'status,created_at'
+            ),
+            'order': 'created_at.asc'
+        }
+    )
+
+    # ------------------------------------------
+    # POLL OPTIONS
+    # ------------------------------------------
+
+    options = get_all(
+        'poll_options',
+        {
+            'select': (
+                'id,question_id,option_text,'
+                'color_key,sort_order'
+            ),
+            'order': 'sort_order.asc'
+        }
+    )
+
+    option_map = {
+        option['id']: option
+        for option in options
+    }
+
+    # ------------------------------------------
+    # HEART EMOJIS FROM SAVED PALETTE
+    # ------------------------------------------
+
+    palette_rows = db(
+        'poll_palette',
         params={
-            'select':'question_id,answer_text,status,created_at',
-            'order':'created_at.asc',
-            'limit':'10000'
+            'select': 'color_key,heart',
+            'limit': '100'
         }
     ) or []
 
-    stream=io.StringIO()
+    heart_map = {
+        row['color_key']: row['heart']
+        for row in palette_rows
+    }
+
+    # ------------------------------------------
+    # ALL POLL VOTES
+    # ------------------------------------------
+
+    votes = get_all(
+        'poll_votes',
+        {
+            'select': (
+                'question_id,option_id'
+            )
+        }
+    )
+
+    # ------------------------------------------
+    # BUILD CSV
+    # ------------------------------------------
+
+    stream = io.StringIO()
+
+    # UTF-8 BOM for Georgian and emojis in Excel.
     stream.write('\ufeff')
-    w=csv.writer(stream)
-    w.writerow(['კითხვა №','კითხვა','პასუხი','სტატუსი','დრო'])
-    for a in answers:
-        q=qs.get(a['question_id'],{})
-        txt=a['answer_text']
-        if txt and txt[0] in '=+-@\t\r':
-            txt="'"+txt
-        w.writerow([
-            q.get('question_number',''),
-            q.get('text',''),
-            txt,
-            a['status'],
-            a['created_at']
+
+    writer = csv.writer(stream)
+
+    writer.writerow([
+        'კითხვა №',
+        'კითხვა',
+        'პასუხი',
+        'სტატუსი',
+        'დრო'
+    ])
+
+    # ------------------------------------------
+    # TEXT QUESTION ROWS — UNCHANGED FORMAT
+    # ------------------------------------------
+
+    for answer in answers:
+        q = question_map.get(
+            answer['question_id'], {}
+        )
+
+        writer.writerow([
+            q.get('question_number', ''),
+            safe_csv(q.get('text', '')),
+            safe_csv(
+                answer.get('answer_text', '')
+            ),
+            answer.get('status', ''),
+            answer.get('created_at', '')
         ])
+
+    # ------------------------------------------
+    # POLL VOTES — HEART + OPTION TEXT
+    # ------------------------------------------
+
+    for vote in votes:
+        q = question_map.get(
+            vote.get('question_id')
+        )
+
+        option = option_map.get(
+            vote.get('option_id')
+        )
+
+        # Never invent an answer when the
+        # matching option cannot be found.
+        if not q or not option:
+            continue
+
+        color_key = option.get(
+            'color_key', ''
+        )
+
+        heart = heart_map.get(
+            color_key, '♡'
+        )
+
+        option_text = option.get(
+            'option_text', ''
+        )
+
+        # Example:
+        # 💛 მწვრთნელთა ფაკულტეტი
+        full_answer = (
+            heart + ' ' + option_text
+        ).strip()
+
+        writer.writerow([
+            q.get('question_number', ''),
+            safe_csv(q.get('text', '')),
+            safe_csv(full_answer),
+            'მიღებულია',
+            ''
+        ])
+
+    # ------------------------------------------
+    # DOWNLOAD
+    # ------------------------------------------
+
     return Response(
         stream.getvalue(),
         mimetype='text/csv; charset=utf-8',
         headers={
             'Content-Disposition':
-            'attachment; filename=SPORTUNI_WELCOME_responses.csv'
+                'attachment; filename='
+                'SPORTUNI_WELCOME_responses.csv',
+            'Cache-Control': 'no-store'
         }
     )
+
 
 @app.route('/api/admin/questions/<qid>/export.csv')
 def export_question(qid):
