@@ -3,10 +3,11 @@
    SPORTUNI WELCOME 2026
    PROJECTOR SCREEN CONTROLLER
 
-   - QR automatically after publishing
-   - Text question -> Live Wall
-   - Poll question -> Live Poll
-   - Admin controls when to switch to Live
+   QR automatically after publishing.
+   Text question -> Live Wall.
+   Poll question -> Live Poll.
+
+   Only admin controls QR / Live switching.
 =================================================== */
 
 (() => {
@@ -65,8 +66,7 @@
         previousType = nextQuestionType;
         initialized = true;
 
-        // Reload screens only when the active
-        // question changes.
+        // Reload views only when a question changes.
         const query = nextQuestionId
           ? "?q=" + encodeURIComponent(nextQuestionId)
           : "";
@@ -88,9 +88,8 @@
         }
       }
 
-      // A published question starts in QR mode.
-      // Only the admin switches to Live.
-      // Question type selects the correct live view.
+      // Publishing starts in QR mode.
+      // Admin switches manually to Live.
       show(state.screen, nextQuestionType);
 
     } catch (error) {
@@ -99,13 +98,13 @@
         error
       );
 
-      // Keep the last displayed screen.
+      // Preserve the last working view.
     } finally {
       checking = false;
     }
   }
 
-  // Default to QR until server status arrives.
+  // Show QR while waiting for server state.
   show("qr", "text");
 
   tick();
